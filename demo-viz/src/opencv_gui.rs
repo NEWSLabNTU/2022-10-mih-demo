@@ -1,49 +1,43 @@
-use anyhow::Result;
-use async_std::{
-    stream::interval,
-    task::{spawn, JoinHandle},
+use anyhow::{ensure, Result};
+use async_std::task::{spawn_blocking, JoinHandle};
+use flume::RecvTimeoutError;
+use opencv::{
+    core::{Rect, Scalar, Vec3b, VecN, CV_8UC3},
+    highgui,
+    prelude::*,
 };
-use futures::{
-    future::Either::*,
-    stream,
-    stream::{StreamExt as _, TryStreamExt as _},
-};
-use opencv::{core::Rect, highgui, prelude::*};
 use r2r::{
     geometry_msgs::msg::Pose2D,
+    log_error,
     sensor_msgs::msg::Image,
     vision_msgs::msg::{BoundingBox2D, BoundingBox2DArray},
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const INTERVAL: Duration = Duration::from_millis(100);
 
 pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
     let (tx, rx) = flume::bounded(2);
 
-    let handle = spawn(async move {
-        let int_stream = interval(INTERVAL).map(Left);
-        let image_stream = rx.into_stream().map(Right);
-        let stream = stream::select(int_stream, image_stream);
-        let init_state = State::default();
+    let handle = spawn_blocking(move || {
+        let mut state = State::default();
+        let mut until = Instant::now() + INTERVAL;
 
-        stream
-            .map(anyhow::Ok)
-            .try_fold(init_state, |mut state, either| async move {
-                match either {
-                    // update gui
-                    Left(()) => {
-                        state.step()?;
-                    }
-                    // receive image
-                    Right(msg) => {
-                        state.update(msg)?;
+        loop {
+            match rx.recv_deadline(until) {
+                Ok(msg) => {
+                    state.update(msg);
+                    if Instant::now() < until {
+                        continue;
                     }
                 }
+                Err(RecvTimeoutError::Disconnected) => break,
+                Err(RecvTimeoutError::Timeout) => {}
+            }
 
-                anyhow::Ok(state)
-            })
-            .await?;
+            state.step()?;
+            until = Instant::now() + INTERVAL;
+        }
 
         anyhow::Ok(())
     });
@@ -61,31 +55,35 @@ impl State {
     fn step(&mut self) -> Result<()> {
         if let Some(image) = &self.image {
             highgui::imshow("demo", image)?;
+            let _key = highgui::wait_key(1)?;
         }
 
         Ok(())
     }
 
-    fn update(&mut self, msg: Message) -> Result<()> {
+    fn update(&mut self, msg: Message) {
         match msg {
             Message::Image(image) => {
-                self.update_image(image)?;
+                self.update_image(image);
             }
             Message::BBox(bbox) => {
-                self.update_det(bbox)?;
+                self.update_det(bbox);
             }
         }
-
-        Ok(())
     }
 
-    fn update_image(&mut self, image: Image) -> Result<()> {
-        let mat = image2mat(&image);
+    fn update_image(&mut self, image: Image) {
+        let mat = match image2mat(&image) {
+            Ok(mat) => mat,
+            Err(err) => {
+                log_error!(env!("CARGO_PKG_NAME"), "invalid input image: {}", err);
+                return;
+            }
+        };
         self.image = Some(mat);
-        Ok(())
     }
 
-    fn update_det(&mut self, array: BoundingBox2DArray) -> Result<()> {
+    fn update_det(&mut self, array: BoundingBox2DArray) {
         self.rects = array
             .boxes
             .iter()
@@ -108,12 +106,10 @@ impl State {
                 }
             })
             .collect();
-
-        Ok(())
     }
 }
 
-fn image2mat(image: &Image) -> Mat {
+fn image2mat(image: &Image) -> Result<Mat> {
     let Image {
         height,
         width,
@@ -124,7 +120,23 @@ fn image2mat(image: &Image) -> Mat {
         ..
     } = *image;
 
-    todo!();
+    ensure!(encoding == "bgr8");
+    ensure!(is_bigendian == 0);
+    ensure!(step == width * 3);
+    ensure!(data.len() == step as usize * height as usize);
+
+    let mut mat =
+        Mat::new_rows_cols_with_default(height as i32, width as i32, CV_8UC3, Scalar::all(0.0))?;
+
+    data.chunks_exact(3).enumerate().for_each(|(pidx, bytes)| {
+        let col = pidx % width as usize;
+        let row = pidx / width as usize;
+        let pixel: &mut Vec3b = mat.at_2d_mut(row as i32, col as i32).unwrap();
+        let bytes: [u8; 3] = bytes.try_into().unwrap();
+        *pixel = VecN(bytes);
+    });
+
+    Ok(mat)
 }
 
 pub enum Message {

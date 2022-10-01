@@ -69,7 +69,7 @@ impl kiss3d::window::State for State {
 
                 if let Err(err) = result {
                     window.close();
-                    log_error!(env!("CARGO_PKG_NAME"), "{}", err);
+                    log_error!(env!("CARGO_PKG_NAME"), "kiss3d gui error: {}", err);
                     return;
                 }
             }
