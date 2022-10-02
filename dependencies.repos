@@ -1,0 +1,33 @@
+repositories:
+  angles:
+    type: git
+    url: https://github.com/ros/angles.git
+    version: ros2
+  diagnostics:
+    type: git
+    url: https://github.com/ros/diagnostics.git
+    version: galactic
+  image_pipeline:
+    type: git
+    url: https://github.com/ros-perception/image_pipeline.git
+    version: galactic
+  ros2_v4l2_camera:
+    type: git
+    url: https://gitlab.com/boldhearts/ros2_v4l2_camera.git
+    version: galactic
+  rqt_image_view:
+    type: git
+    url: https://github.com/ros-visualization/rqt_image_view.git
+    version: foxy-devel
+  velodyne:
+    type: git
+    url: https://github.com/ros-drivers/velodyne.git
+    version: galactic-devel
+  vision_msgs:
+    type: git
+    url: https://github.com/ros-perception/vision_msgs.git
+    version: galactic
+  vision_opencv:
+    type: git
+    url: https://github.com/ros-perception/vision_opencv.git
+    version: 3.1.2
