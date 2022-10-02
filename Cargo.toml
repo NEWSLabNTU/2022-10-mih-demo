@@ -2,5 +2,5 @@
 members = [
     "kneron-bbox-server",
     "kneron-bbox-server-node",
-    "demo-viz",
+    "viz",
 ]

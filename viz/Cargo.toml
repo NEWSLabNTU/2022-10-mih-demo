@@ -1,5 +1,5 @@
 [package]
-name = "demo-viz"
+name = "viz"
 version = "0.1.0"
 edition = "2021"
 
