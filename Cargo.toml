@@ -4,3 +4,10 @@ members = [
     "kneron-bbox-server-node",
     "viz",
 ]
+
+[patch.crates-io]
+r2r_actions = { git = "https://github.com/jerry73204/r2r.git", rev = "1955bdda3bb8da9878f793e53b714634375292fd" }
+r2r_common = { git = "https://github.com/jerry73204/r2r.git", rev = "1955bdda3bb8da9878f793e53b714634375292fd" }
+r2r_msg_gen = { git = "https://github.com/jerry73204/r2r.git", rev = "1955bdda3bb8da9878f793e53b714634375292fd" }
+r2r_rcl = { git = "https://github.com/jerry73204/r2r.git", rev = "1955bdda3bb8da9878f793e53b714634375292fd" }
+r2r = { git = "https://github.com/jerry73204/r2r.git", rev = "1955bdda3bb8da9878f793e53b714634375292fd" }
