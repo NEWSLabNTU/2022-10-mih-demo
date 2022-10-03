@@ -9,7 +9,7 @@ use clap::Parser;
 use futures::{future, future::FutureExt as _, stream::StreamExt as _};
 use r2r::{
     sensor_msgs::msg::{Image, PointCloud},
-    vision_msgs::msg::BoundingBox2DArray,
+    vision_msgs::msg::Detection2DArray,
     Context, Node, QosProfile,
 };
 
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     let mut node = Node::create(ctx, "demo_viz", &opts.namespace)?;
 
     let pcd_sub = node.subscribe::<PointCloud>(&opts.pcd_topic, QosProfile::default())?;
-    let det_sub = node.subscribe::<BoundingBox2DArray>(&opts.det_topic, QosProfile::default())?;
+    let det_sub = node.subscribe::<Detection2DArray>(&opts.det_topic, QosProfile::default())?;
     let img_sub = node.subscribe::<Image>(&opts.img_topic, QosProfile::default())?;
 
     let spin_future = spawn_blocking(move || loop {

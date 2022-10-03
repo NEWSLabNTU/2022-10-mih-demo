@@ -10,7 +10,7 @@ use r2r::{
     geometry_msgs::msg::Pose2D,
     log_error,
     sensor_msgs::msg::Image,
-    vision_msgs::msg::{BoundingBox2D, BoundingBox2DArray},
+    vision_msgs::msg::{BoundingBox2D, Detection2DArray},
 };
 use std::time::{Duration, Instant};
 
@@ -83,16 +83,16 @@ impl State {
         self.image = Some(mat);
     }
 
-    fn update_det(&mut self, array: BoundingBox2DArray) {
+    fn update_det(&mut self, array: Detection2DArray) {
         self.rects = array
-            .boxes
+            .detections
             .iter()
-            .map(|bbox| {
+            .map(|det| {
                 let BoundingBox2D {
                     size_x,
                     size_y,
                     center: Pose2D { x: cx, y: cy, .. },
-                } = *bbox;
+                } = det.bbox;
 
                 // left-top x and y
                 let ltx = cx - size_x / 2.0;
@@ -141,11 +141,11 @@ fn image2mat(image: &Image) -> Result<Mat> {
 
 pub enum Message {
     Image(Image),
-    BBox(BoundingBox2DArray),
+    BBox(Detection2DArray),
 }
 
-impl From<BoundingBox2DArray> for Message {
-    fn from(v: BoundingBox2DArray) -> Self {
+impl From<Detection2DArray> for Message {
+    fn from(v: Detection2DArray) -> Self {
         Self::BBox(v)
     }
 }
