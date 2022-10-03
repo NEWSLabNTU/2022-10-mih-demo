@@ -1,7 +1,6 @@
 mod kiss3d_gui;
 mod opencv_gui;
-
-use std::time::Duration;
+mod rate_meter;
 
 use anyhow::Result;
 use async_std::task::spawn_blocking;
@@ -9,10 +8,14 @@ use clap::Parser;
 use futures::{future, future::FutureExt as _, stream::StreamExt as _};
 use r2r::{
     autoware_auto_perception_msgs::msg::DetectedObjects,
-    sensor_msgs::msg::{Image, PointCloud},
+    log_info,
+    sensor_msgs::msg::{Image, PointCloud2},
     vision_msgs::msg::Detection2DArray,
     Context, Node, QosProfile,
 };
+use std::{sync::Arc, time::Duration};
+
+use crate::rate_meter::RateMeter;
 
 #[derive(Parser)]
 struct Opts {
@@ -44,10 +47,16 @@ async fn main() -> Result<()> {
     let ctx = Context::create()?;
     let mut node = Node::create(ctx, "demo_viz", &opts.namespace)?;
 
-    let pcd_sub = node.subscribe::<PointCloud>(&opts.pcd_topic, QosProfile::default())?;
-    let aw_det_sub = node.subscribe::<DetectedObjects>(&opts.det_topic, QosProfile::default())?;
+    let pcd_sub = node.subscribe::<PointCloud2>(&opts.pcd_topic, QosProfile::default())?;
+    let aw_det_sub =
+        node.subscribe::<DetectedObjects>(&opts.aw_det_topic, QosProfile::default())?;
     let det_sub = node.subscribe::<Detection2DArray>(&opts.det_topic, QosProfile::default())?;
     let img_sub = node.subscribe::<Image>(&opts.img_topic, QosProfile::default())?;
+
+    let pcd_meter = Arc::new(RateMeter::new_secs());
+    let aw_det_meter = Arc::new(RateMeter::new_secs());
+    let det_meter = Arc::new(RateMeter::new_secs());
+    let img_meter = Arc::new(RateMeter::new_secs());
 
     let spin_future = spawn_blocking(move || loop {
         node.spin_once(Duration::from_millis(100));
@@ -57,21 +66,58 @@ async fn main() -> Result<()> {
     let (gui3d_future, gui3d_tx) = kiss3d_gui::start();
 
     let pcd_forward = pcd_sub
+        .inspect(|_| {
+            pcd_meter.bump();
+        })
         .map(kiss3d_gui::Message::from)
         .map(Ok)
         .forward(gui3d_tx.clone().into_sink());
     let aw_det_forward = aw_det_sub
+        .inspect(|_| {
+            aw_det_meter.bump();
+        })
         .map(kiss3d_gui::Message::from)
         .map(Ok)
         .forward(gui3d_tx.into_sink());
     let det_forward = det_sub
+        .inspect(|_| {
+            det_meter.bump();
+        })
         .map(opencv_gui::Message::from)
         .map(Ok)
         .forward(gui2d_tx.clone().into_sink());
     let img_forward = img_sub
+        .inspect(|_| {
+            img_meter.bump();
+        })
         .map(opencv_gui::Message::from)
         .map(Ok)
         .forward(gui2d_tx.into_sink());
+
+    let pcd_rate_print = pcd_meter.rate_stream().for_each(|rate| {
+        let topic = &opts.pcd_topic;
+        async move {
+            log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
+        }
+    });
+    let det_rate_print = det_meter.rate_stream().for_each(|rate| {
+        let topic = &opts.det_topic;
+        async move {
+            log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
+        }
+    });
+    let aw_det_rate_print = aw_det_meter.rate_stream().for_each(|rate| {
+        let topic = &opts.aw_det_topic;
+        async move {
+            log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
+        }
+    });
+    let img_rate_print = img_meter.rate_stream().for_each(|rate| {
+        let topic = &opts.img_topic;
+        async move {
+            log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
+        }
+    });
 
     let join1 = future::try_join3(gui2d_future, gui3d_future, spin_future.map(Ok));
     let join2 = future::try_join4(
@@ -80,12 +126,19 @@ async fn main() -> Result<()> {
         det_forward.map(|result| result.map_err(|_| ())),
         img_forward.map(|result| result.map_err(|_| ())),
     );
+    let join3 = future::join4(
+        pcd_rate_print,
+        det_rate_print,
+        aw_det_rate_print,
+        img_rate_print,
+    );
 
     futures::select! {
         result = join1.fuse() => {
             result?;
         }
         _ = join2.fuse() => {}
+        _ = join3.fuse() => {}
     };
 
     Ok(())
