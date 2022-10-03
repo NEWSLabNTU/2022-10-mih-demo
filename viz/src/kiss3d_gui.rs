@@ -8,9 +8,12 @@ use kiss3d::{
     post_processing::PostProcessingEffect,
     window::Window,
 };
-use r2r::{geometry_msgs::msg::Point32, log_error, sensor_msgs::msg::PointCloud};
+use r2r::{
+    autoware_auto_perception_msgs::msg::DetectedObjects, geometry_msgs::msg::Point32,
+    sensor_msgs::msg::PointCloud,
+};
 
-pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<PointCloud>) {
+pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
     let (tx, rx) = flume::bounded(2);
 
     let handle = spawn_blocking(move || {
@@ -38,12 +41,19 @@ pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<PointCloud>) {
 
 struct State {
     points: Vec<Point>,
-    rx: flume::Receiver<PointCloud>,
+    rx: flume::Receiver<Message>,
     camera: ArcBall,
 }
 
 impl State {
-    fn update_point_cloud(&mut self, pcd: PointCloud) -> Result<()> {
+    fn update_msg(&mut self, msg: Message) {
+        match msg {
+            Message::PointCloud(pcd) => self.update_point_cloud(pcd),
+            Message::DetectedObjects(objs) => self.update_aw_objs(objs),
+        }
+    }
+
+    fn update_point_cloud(&mut self, pcd: PointCloud) {
         self.points = pcd
             .points
             .iter()
@@ -54,8 +64,13 @@ impl State {
                 Point { position, color }
             })
             .collect();
+    }
 
-        Ok(())
+    fn update_aw_objs(&self, objs: DetectedObjects) {
+        objs.objects.iter().map(|obj| {
+            // obj.shape.polygon;
+            // TODO
+        });
     }
 }
 
@@ -63,15 +78,15 @@ impl kiss3d::window::State for State {
     fn step(&mut self, window: &mut Window) {
         // Try to receive a message
         match self.rx.try_recv() {
-            Ok(pcd) => {
-                // update point cloud
-                let result = self.update_point_cloud(pcd);
+            Ok(msg) => {
+                // update GUI state
+                self.update_msg(msg);
 
-                if let Err(err) = result {
-                    window.close();
-                    log_error!(env!("CARGO_PKG_NAME"), "kiss3d gui error: {}", err);
-                    return;
-                }
+                // if let Err(err) = result {
+                //     window.close();
+                //     log_error!(env!("CARGO_PKG_NAME"), "kiss3d gui error: {}", err);
+                //     return;
+                // }
             }
             Err(flume::TryRecvError::Empty) => {}
             Err(flume::TryRecvError::Disconnected) => {
@@ -120,4 +135,21 @@ impl kiss3d::window::State for State {
 struct Point {
     pub position: na::Point3<f32>,
     pub color: na::Point3<f32>,
+}
+
+pub enum Message {
+    PointCloud(PointCloud),
+    DetectedObjects(DetectedObjects),
+}
+
+impl From<DetectedObjects> for Message {
+    fn from(v: DetectedObjects) -> Self {
+        Self::DetectedObjects(v)
+    }
+}
+
+impl From<PointCloud> for Message {
+    fn from(v: PointCloud) -> Self {
+        Self::PointCloud(v)
+    }
 }
