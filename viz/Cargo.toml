@@ -11,6 +11,7 @@ async-std = { version = "1.12.0", features = ["attributes", "unstable"] }
 clap = { version = "4.0.7", features = ["derive"] }
 flume = "0.10.14"
 futures = "0.3.24"
+itertools = "0.10.5"
 kiss3d = "0.35.0"
 opencv = { version = "0.68.0", default-features = false, features = ["highgui", "imgproc"] }
 r2r = "0.6.3"

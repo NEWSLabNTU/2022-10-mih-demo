@@ -1,5 +1,6 @@
 use anyhow::Result;
 use async_std::task::{spawn_blocking, JoinHandle};
+use itertools::Itertools as _;
 use kiss3d::{
     camera::{ArcBall, Camera},
     light::Light,
