@@ -1,7 +1,9 @@
+mod config;
 mod kiss3d_gui;
 mod opencv_gui;
 mod rate_meter;
 
+use crate::{config::Config, rate_meter::RateMeter};
 use anyhow::Result;
 use async_std::task::spawn_blocking;
 use clap::Parser;
@@ -13,45 +15,34 @@ use r2r::{
     vision_msgs::msg::Detection2DArray,
     Context, Node, QosProfile,
 };
-use std::{sync::Arc, time::Duration};
-
-use crate::rate_meter::RateMeter;
+use serde_loader::Json5Path;
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 #[derive(Parser)]
 struct Opts {
-    /// Input topic for point cloud.
-    #[clap(long, default_value = "pcd")]
-    pub pcd_topic: String,
-
-    /// Input topic for 2D detected objects.
-    #[clap(long, default_value = "det")]
-    pub det_topic: String,
-
-    /// Input topic for Autoware detected objects.
-    #[clap(long, default_value = "aw_det")]
-    pub aw_det_topic: String,
-
-    /// Input topic for images.
-    #[clap(long, default_value = "img")]
-    pub img_topic: String,
-
-    /// Namespace.
-    #[clap(long, default_value = "/")]
-    pub namespace: String,
+    pub config: PathBuf,
 }
 
 #[async_std::main]
 async fn main() -> Result<()> {
     let opts = Opts::parse();
+    let config: Config = Json5Path::open_and_take(&opts.config)?;
+    let Config {
+        namespace,
+        pcd_topic,
+        img_topic,
+        det_topic,
+        aw_det_topic,
+        ..
+    } = config;
 
     let ctx = Context::create()?;
-    let mut node = Node::create(ctx, "demo_viz", &opts.namespace)?;
+    let mut node = Node::create(ctx, "demo_viz", &namespace)?;
 
-    let pcd_sub = node.subscribe::<PointCloud2>(&opts.pcd_topic, QosProfile::default())?;
-    let aw_det_sub =
-        node.subscribe::<DetectedObjects>(&opts.aw_det_topic, QosProfile::default())?;
-    let det_sub = node.subscribe::<Detection2DArray>(&opts.det_topic, QosProfile::default())?;
-    let img_sub = node.subscribe::<Image>(&opts.img_topic, QosProfile::default())?;
+    let pcd_sub = node.subscribe::<PointCloud2>(&pcd_topic, QosProfile::default())?;
+    let aw_det_sub = node.subscribe::<DetectedObjects>(&aw_det_topic, QosProfile::default())?;
+    let det_sub = node.subscribe::<Detection2DArray>(&det_topic, QosProfile::default())?;
+    let img_sub = node.subscribe::<Image>(&img_topic, QosProfile::default())?;
 
     let pcd_meter = Arc::new(RateMeter::new_secs());
     let aw_det_meter = Arc::new(RateMeter::new_secs());
@@ -95,25 +86,25 @@ async fn main() -> Result<()> {
         .forward(gui2d_tx.into_sink());
 
     let pcd_rate_print = pcd_meter.rate_stream().for_each(|rate| {
-        let topic = &opts.pcd_topic;
+        let topic = &pcd_topic;
         async move {
             log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
         }
     });
     let det_rate_print = det_meter.rate_stream().for_each(|rate| {
-        let topic = &opts.det_topic;
+        let topic = &det_topic;
         async move {
             log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
         }
     });
     let aw_det_rate_print = aw_det_meter.rate_stream().for_each(|rate| {
-        let topic = &opts.aw_det_topic;
+        let topic = &aw_det_topic;
         async move {
             log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
         }
     });
     let img_rate_print = img_meter.rate_stream().for_each(|rate| {
-        let topic = &opts.img_topic;
+        let topic = &img_topic;
         async move {
             log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
         }
