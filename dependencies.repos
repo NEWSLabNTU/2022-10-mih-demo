@@ -31,3 +31,7 @@ repositories:
     type: git
     url: https://github.com/ros-perception/vision_opencv.git
     version: 3.1.2
+  autoware_auto_msgs: # TODO(mfc): Remove when autoware_msgs is merged
+    type: git
+    url: https://github.com/tier4/autoware_auto_msgs.git
+    version: tier4/main
