@@ -1,15 +1,6 @@
-.PHONY: build clean
+.PHONY: build clean pull_and_build_dependencies
 
 build:
-	@echo 'Pull dependent repositories' >&2
-	@mkdir -p repos && \
-	vcs import repos < dependencies.repos && \
-	vcs pull repos < dependencies.repos
-
-	@echo 'Build dependent repositories' >&2
-	cd repos && \
-	colcon build
-
 	@echo 'Building this project' >&2
 	@if [ -d /opt/ros2/galactic/setup.sh ] ; then \
 		source /opt/ros2/galactic/setup.sh; \
@@ -19,6 +10,16 @@ build:
 	fi && \
 	source repos/install/setup.sh && \
 	cargo build --release --all-targets
+
+pull_and_build_dependencies:
+	@echo 'Pull dependent repositories' >&2
+	@mkdir -p repos && \
+	vcs import repos < dependencies.repos && \
+	vcs pull repos < dependencies.repos
+
+	@echo 'Build dependent repositories' >&2
+	cd repos && \
+	colcon build
 
 clean:
 	cargo clean
