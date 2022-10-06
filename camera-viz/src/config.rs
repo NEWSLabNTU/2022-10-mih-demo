@@ -28,9 +28,6 @@ pub struct Config {
     /// Input topic for 2D detected objects.
     pub det_topic: String,
 
-    /// Input topic for Autoware detected objects.
-    pub aw_det_topic: String,
-
     /// The calibration file.
     pub calibration_file: AbsPathBuf,
 }

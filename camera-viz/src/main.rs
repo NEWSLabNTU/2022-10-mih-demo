@@ -9,7 +9,6 @@ use async_std::task::spawn_blocking;
 use clap::Parser;
 use futures::{future, future::FutureExt as _, stream::StreamExt as _};
 use r2r::{
-    autoware_auto_perception_msgs::msg::DetectedObjects,
     log_info,
     sensor_msgs::msg::{Image, PointCloud2},
     vision_msgs::msg::Detection2DArray,
@@ -32,7 +31,6 @@ async fn main() -> Result<()> {
         pcd_topic,
         img_topic,
         det_topic,
-        aw_det_topic,
         ..
     } = config;
 
@@ -40,12 +38,10 @@ async fn main() -> Result<()> {
     let mut node = Node::create(ctx, "demo_viz", &namespace)?;
 
     let pcd_sub = node.subscribe::<PointCloud2>(&pcd_topic, QosProfile::default())?;
-    let aw_det_sub = node.subscribe::<DetectedObjects>(&aw_det_topic, QosProfile::default())?;
     let det_sub = node.subscribe::<Detection2DArray>(&det_topic, QosProfile::default())?;
     let img_sub = node.subscribe::<Image>(&img_topic, QosProfile::default())?;
 
     let pcd_meter = Arc::new(RateMeter::new_secs());
-    let aw_det_meter = Arc::new(RateMeter::new_secs());
     let det_meter = Arc::new(RateMeter::new_secs());
     let img_meter = Arc::new(RateMeter::new_secs());
 
@@ -63,13 +59,6 @@ async fn main() -> Result<()> {
         .map(kiss3d_gui::Message::from)
         .map(Ok)
         .forward(gui3d_tx.clone().into_sink());
-    let aw_det_forward = aw_det_sub
-        .inspect(|_| {
-            aw_det_meter.bump();
-        })
-        .map(kiss3d_gui::Message::from)
-        .map(Ok)
-        .forward(gui3d_tx.into_sink());
     let det_forward = det_sub
         .inspect(|_| {
             det_meter.bump();
@@ -97,12 +86,6 @@ async fn main() -> Result<()> {
             log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
         }
     });
-    let aw_det_rate_print = aw_det_meter.rate_stream().for_each(|rate| {
-        let topic = &aw_det_topic;
-        async move {
-            log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
-        }
-    });
     let img_rate_print = img_meter.rate_stream().for_each(|rate| {
         let topic = &img_topic;
         async move {
@@ -111,18 +94,12 @@ async fn main() -> Result<()> {
     });
 
     let join1 = future::try_join3(gui2d_future, gui3d_future, spin_future.map(Ok));
-    let join2 = future::try_join4(
+    let join2 = future::try_join3(
         pcd_forward.map(|result| result.map_err(|_| ())),
-        aw_det_forward.map(|result| result.map_err(|_| ())),
         det_forward.map(|result| result.map_err(|_| ())),
         img_forward.map(|result| result.map_err(|_| ())),
     );
-    let join3 = future::join4(
-        pcd_rate_print,
-        det_rate_print,
-        aw_det_rate_print,
-        img_rate_print,
-    );
+    let join3 = future::join3(pcd_rate_print, det_rate_print, img_rate_print);
 
     futures::select! {
         result = join1.fuse() => {
