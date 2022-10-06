@@ -1,5 +1,6 @@
-use anyhow::Result;
-use async_std::task::{spawn_blocking, JoinHandle};
+use crate::message as msg;
+use async_std::task::spawn_blocking;
+use futures::prelude::*;
 use kiss3d::{
     camera::{ArcBall, Camera},
     event::{Action, Key, Modifiers, WindowEvent},
@@ -11,15 +12,13 @@ use kiss3d::{
 };
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use r2r::{
-    log_warn,
-    sensor_msgs::msg::{PointCloud2, PointField},
-};
 
-pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
+pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send) {
     let (tx, rx) = flume::bounded(2);
 
-    let handle = spawn_blocking(move || {
+    let forward_future = stream.map(Ok).forward(tx.into_sink()).map(|_result| ());
+
+    let handle_future = spawn_blocking(move || {
         let window = {
             let mut window = Window::new("demo");
             window.set_light(Light::StickToCamera);
@@ -38,17 +37,16 @@ pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
             point_color_mode: PointColorMode::default(),
         };
         window.render_loop(state);
-        anyhow::Ok(())
     });
 
-    (handle, tx)
+    futures::join!(forward_future, handle_future);
 }
 
 struct State {
     point_color_mode: PointColorMode,
     points: Vec<ColoredPoint>,
     objects: Vec<Object3D>,
-    rx: flume::Receiver<Message>,
+    rx: flume::Receiver<msg::Kiss3dMessage>,
     camera: ArcBall,
 }
 
@@ -78,81 +76,20 @@ impl State {
 
     fn process_key_event() {}
 
-    fn update_msg(&mut self, msg: Message) {
-        match msg {
-            Message::PointCloud2(pcd) => self.update_point_cloud(pcd),
-        }
-    }
-
-    fn update_point_cloud(&mut self, pcd: PointCloud2) {
-        let [fx, fy, fz, fi] = match pcd.fields.get(0..4) {
-            Some([f1, f2, f3, f4]) => [f1, f2, f3, f4],
-            Some(_) => unreachable!(),
-            None => {
-                log_warn!(
-                    env!("CARGO_PKG_NAME"),
-                    "Ignore a point cloud message with less then 3 fields"
-                );
-                return;
-            }
-        };
-
-        if !(fx.name == "x" && fy.name == "y" && fz.name == "z" && fi.name == "intensity") {
-            log_warn!(
-                env!("CARGO_PKG_NAME"),
-                "Ignore a point cloud message with incorrect field name"
-            );
-            return;
-        }
-
-        let check_field = |field: &PointField| {
-            let PointField {
-                datatype, count, ..
-            } = *field;
-
-            // reject non-f64 or non-single-value fields
-            if !(datatype == 7 && count == 1) {
-                log_warn!(
-                    env!("CARGO_PKG_NAME"),
-                    "Ignore a point cloud message with non-f64 or non-single-value values"
-                );
-                return false;
-            }
-
-            true
-        };
-        if !(check_field(fx) && check_field(fy) && check_field(fz) && check_field(fi)) {
-            return;
-        }
-
-        if pcd.point_step != 16 {
-            log_warn!(
-                env!("CARGO_PKG_NAME"),
-                "Ignore a point cloud message with incorrect point_step (expect 16)"
-            );
-            return;
-        }
-
-        self.points = pcd
-            .data
-            .chunks(pcd.point_step as usize)
-            .map(|point_bytes| {
-                let xbytes = &point_bytes[0..4];
-                let ybytes = &point_bytes[4..8];
-                let zbytes = &point_bytes[8..12];
-                let ibytes = &point_bytes[12..16];
-
-                let x = f32::from_le_bytes(xbytes.try_into().unwrap());
-                let y = f32::from_le_bytes(ybytes.try_into().unwrap());
-                let z = f32::from_le_bytes(zbytes.try_into().unwrap());
-                let intensity = f32::from_le_bytes(ibytes.try_into().unwrap());
-
-                let position = na::Point3::new(x, y, z);
-
-                let nint = intensity / 100.0; // normalized intensity
-                                              // let color = na::Point3::new(nint, nint, nint);
+    fn update_msg(&mut self, msg: msg::Kiss3dMessage) {
+        let msg::Kiss3dMessage { points } = msg;
+        self.points = points
+            .iter()
+            .map(|point| {
+                let msg::Point {
+                    position,
+                    intensity: _,
+                } = point;
                 let color = na::Point3::new(0.3, 0.3, 0.3);
-                ColoredPoint { position, color }
+                ColoredPoint {
+                    position: position.clone(),
+                    color,
+                }
             })
             .collect();
     }
@@ -241,16 +178,6 @@ struct ColoredPoint {
 struct ColoredSegmentSet {
     pub segments: Vec<[na::Point3<f32>; 2]>,
     pub color: na::Point3<f32>,
-}
-
-pub enum Message {
-    PointCloud2(PointCloud2),
-}
-
-impl From<PointCloud2> for Message {
-    fn from(v: PointCloud2) -> Self {
-        Self::PointCloud2(v)
-    }
 }
 
 struct Object3D {
