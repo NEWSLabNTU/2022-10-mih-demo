@@ -1,10 +1,13 @@
 use crate::yaml_loader::YamlPath;
 use anyhow::Result;
+use cv_convert::{OpenCvPose, TryIntoCv};
 use nalgebra as na;
 use noisy_float::prelude::*;
 use opencv::prelude::*;
 use serde::{de::Error as _, Deserialize, Deserializer};
+use serde_loader::Json5Path;
 use serde_semver::SemverReq;
+use slice_of_array::prelude::*;
 use std::mem;
 
 #[derive(Debug, Clone, SemverReq)]
@@ -28,8 +31,11 @@ pub struct Config {
     /// Input topic for 2D detected objects.
     pub det_topic: String,
 
-    /// The calibration file.
-    pub calibration_file: YamlPath<MrptCalibration>,
+    /// The intrinsic parameters file.
+    pub intrinsics_file: YamlPath<MrptCalibration>,
+
+    /// The extrinsic parameters file.
+    pub extrinsics_file: Json5Path<ExtrinsicsData>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -112,4 +118,75 @@ pub struct UncheckedMatrix {
 #[serde(rename_all = "snake_case")]
 pub enum DistortionModel {
     PlumpBob,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ExtrinsicsData {
+    Quaternion(ExtrinsicsTransform),
+    Matrix(ExtrinsicsMatrix),
+}
+
+impl ExtrinsicsData {
+    pub fn to_na(&self) -> na::Isometry3<f64> {
+        match self {
+            Self::Quaternion(me) => me.to_na(),
+            Self::Matrix(me) => me.to_na(),
+        }
+    }
+
+    pub fn to_opencv(&self) -> Result<OpenCvPose<Mat>> {
+        let pose = self.to_na().try_into_cv()?;
+        Ok(pose)
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ExtrinsicsTransform {
+    pub rot_wijk: [R64; 4],
+    pub trans_xyz: [R64; 3],
+}
+
+impl ExtrinsicsTransform {
+    pub fn to_na(&self) -> na::Isometry3<f64> {
+        let Self {
+            rot_wijk,
+            trans_xyz,
+        } = *self;
+        let [w, i, j, k]: [f64; 4] = unsafe { mem::transmute(rot_wijk) };
+        let [x, y, z]: [f64; 3] = unsafe { mem::transmute(trans_xyz) };
+
+        let rotation = na::UnitQuaternion::from_quaternion(na::Quaternion::new(w, i, j, k));
+        let translation = na::Translation3::new(x, y, z);
+
+        na::Isometry3 {
+            rotation,
+            translation,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ExtrinsicsMatrix {
+    pub rot: [[R64; 3]; 3],
+    pub trans: [R64; 3],
+}
+
+impl ExtrinsicsMatrix {
+    pub fn to_na(&self) -> na::Isometry3<f64> {
+        let rotation = {
+            let slice: &[R64] = self.rot.flat();
+            let slice: &[f64] = unsafe { mem::transmute(slice) };
+            let mat = na::Matrix3::from_row_slice(slice);
+            na::UnitQuaternion::from_matrix(&mat)
+        };
+        let translation = {
+            let [x, y, z]: [f64; 3] = unsafe { mem::transmute(self.trans) };
+            na::Translation3::new(x, y, z)
+        };
+        na::Isometry3 {
+            rotation,
+            translation,
+        }
+    }
 }

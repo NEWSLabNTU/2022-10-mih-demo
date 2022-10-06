@@ -1,11 +1,20 @@
-use std::sync::Arc;
-
+use crate::rect_rtree::RectRTree;
 use crate::{config::Config, message as msg};
 use anyhow::{ensure, Result};
 use async_std::task::spawn_blocking;
+use cv_convert::FromCv;
+use cv_convert::OpenCvPose;
 use futures::prelude::*;
+use itertools::izip;
 use nalgebra as na;
-use opencv::{core::Rect, prelude::*};
+use opencv::calib3d;
+use opencv::core::Point2f;
+use opencv::core::Vector;
+use opencv::{
+    core::{Point3f, Rect},
+    prelude::*,
+};
+use ownref::ArcRefA as ARef;
 use r2r::{
     geometry_msgs::msg::Pose2D,
     log_error, log_warn,
@@ -55,21 +64,26 @@ pub fn start(
 
 struct State {
     image: Option<Mat>,
-    points: Option<Arc<Vec<msg::Point>>>,
-    rects: Option<Arc<Vec<Rect>>>,
+    points: Option<msg::ArcPointVec>,
+    rect_state: Option<RectState>,
+    rvec: Mat,
+    tvec: Mat,
     camera_matrix: Mat,
     distortion_coefficients: Mat,
 }
 
 impl State {
     pub fn new(config: &Config) -> Result<Self> {
-        let camera_matrix = config.calibration_file.camera_matrix.to_opencv();
-        let distortion_coefficients = config.calibration_file.distortion_coefficients.to_opencv();
+        let OpenCvPose { rvec, tvec } = config.extrinsics_file.to_opencv()?;
+        let camera_matrix = config.intrinsics_file.camera_matrix.to_opencv();
+        let distortion_coefficients = config.intrinsics_file.distortion_coefficients.to_opencv();
 
         Ok(Self {
             image: None,
             points: None,
-            rects: None,
+            rect_state: None,
+            rvec,
+            tvec,
             camera_matrix,
             distortion_coefficients,
         })
@@ -108,7 +122,10 @@ impl State {
                 }
             })
             .collect();
-        self.rects = Some(Arc::new(rects));
+        let rects = ARef::new(rects);
+        let index: RectRTree = rects.clone().flatten().collect();
+
+        self.rect_state = Some(RectState { rects, index });
     }
 
     pub fn update_image(&mut self, image: Image) -> Result<()> {
@@ -219,32 +236,97 @@ impl State {
             })
             .collect();
 
-        self.points = Some(Arc::new(points));
+        self.points = Some(ARef::new(points));
     }
 
     pub fn step(&self) -> msg::FuseMessage {
+        use opencv::core::no_array;
+
         let Self {
             image,
             points,
-            rects,
+            rect_state,
+            rvec,
+            tvec,
+            camera_matrix,
+            distortion_coefficients,
             ..
         } = self;
 
-        let opencv_msg = if let (Some(image), Some(rects)) = (image, rects) {
-            Some(msg::OpencvGuiMessage {
-                image: image.clone(),
-                rects: rects.clone(),
-            })
-        } else {
-            None
-        };
-        let kiss3d_msg = points.as_ref().map(|points| msg::Kiss3dMessage {
-            points: points.clone(),
-        });
+        // Compute 3D point, 2D point and bbox associations
+        let assocs: Option<msg::ArcAssocVec> =
+            if let (Some(points), Some(image), Some(rect_state)) = (points, image, rect_state) {
+                // Project points onto the image
+                let object_points: Vector<Point3f> = points
+                    .iter()
+                    .map(|point| &point.position)
+                    .map(Point3f::from_cv)
+                    .collect();
+                let mut image_points: Vector<Point2f> = Vector::new();
 
-        msg::FuseMessage {
-            opencv_msg,
-            kiss3d_msg,
+                calib3d::project_points(
+                    &object_points,
+                    rvec,
+                    tvec,
+                    camera_matrix,
+                    distortion_coefficients,
+                    &mut image_points,
+                    &mut no_array(), // jacobian
+                    0.0,             // aspect_ratio
+                )
+                .unwrap();
+
+                // Pair up 3D and 2D points
+                let point_pairs = izip!(points.clone().flatten(), image_points);
+
+                // Filter out out-of-bound projected points
+                let width_range = 0.0..=(image.cols() as f32);
+                let height_range = 0.0..=(image.rows() as f32);
+                let inbound_points = point_pairs.filter(|(_pcd_point, img_point)| {
+                    width_range.contains(&img_point.x) && height_range.contains(&img_point.y)
+                });
+
+                // Pair up each 2D point with at most one bbox
+                let assocs = inbound_points.map(|(pcd_point, img_point)| {
+                    let rect = rect_state.index.find(&img_point);
+                    msg::Association {
+                        pcd_point,
+                        img_point,
+                        rect,
+                    }
+                });
+
+                let assoc_vec: Vec<_> = assocs.collect();
+                Some(ARef::new(assoc_vec))
+            } else {
+                None
+            };
+
+        // Construct the output message
+        {
+            let opencv_msg = if let (Some(image), Some(rect_state)) = (image, rect_state) {
+                Some(msg::OpencvGuiMessage {
+                    image: image.clone(),
+                    rects: rect_state.rects.clone(),
+                    assocs: assocs.clone(),
+                })
+            } else {
+                None
+            };
+            let kiss3d_msg = points.as_ref().map(|points| msg::Kiss3dMessage {
+                points: points.clone(),
+                assocs,
+            });
+
+            msg::FuseMessage {
+                opencv_msg,
+                kiss3d_msg,
+            }
         }
     }
+}
+
+struct RectState {
+    rects: msg::ArcRectVec,
+    index: RectRTree,
 }

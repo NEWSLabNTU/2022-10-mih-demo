@@ -1,6 +1,9 @@
-use crate::message as msg;
+use std::collections::HashMap;
+
+use crate::{message as msg, utils::sample_rgb};
 use async_std::task::spawn_blocking;
 use futures::prelude::*;
+use itertools::chain;
 use kiss3d::{
     camera::{ArcBall, Camera},
     event::{Action, Key, Modifiers, WindowEvent},
@@ -31,7 +34,6 @@ pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send
         camera.set_up_axis(na::Vector3::new(0.0, 0.0, 1.0));
         let state = State {
             points: vec![],
-            objects: vec![],
             rx,
             camera,
             point_color_mode: PointColorMode::default(),
@@ -45,7 +47,6 @@ pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send
 struct State {
     point_color_mode: PointColorMode,
     points: Vec<ColoredPoint>,
-    objects: Vec<Object3D>,
     rx: flume::Receiver<msg::Kiss3dMessage>,
     camera: ArcBall,
 }
@@ -77,19 +78,40 @@ impl State {
     fn process_key_event() {}
 
     fn update_msg(&mut self, msg: msg::Kiss3dMessage) {
-        let msg::Kiss3dMessage { points } = msg;
+        let msg::Kiss3dMessage { points, assocs } = msg;
+
+        // Collect background points
+        let background_points = points.flatten().map(|point: msg::ArcPoint| {
+            let color = na::Point3::new(0.3, 0.3, 0.3);
+            (point, color)
+        });
+
+        // Collect points that are inside at least one bbox
+        let object_points = assocs
+            .as_ref()
+            .map(|assocs: &msg::ArcAssocVec| {
+                assocs.iter().filter_map(|assoc: &msg::Association| {
+                    let point: msg::ArcPoint = assoc.pcd_point.clone();
+                    let rect: &msg::ArcRect = assoc.rect.as_ref()?;
+                    let [r, g, b] = sample_rgb(rect);
+                    let color = na::Point3::new(r as f32, g as f32, b as f32);
+                    Some((point, color))
+                })
+            })
+            .into_iter()
+            .flatten();
+
+        // Merge background and object points into a hash map, indexed
+        // by pointer address of points.
+        let points: HashMap<msg::ArcPoint, na::Point3<f32>> =
+            chain!(background_points, object_points).collect();
+
+        // Store points along with their colors
         self.points = points
-            .iter()
-            .map(|point| {
-                let msg::Point {
-                    position,
-                    intensity: _,
-                } = point;
-                let color = na::Point3::new(0.3, 0.3, 0.3);
-                ColoredPoint {
-                    position: position.clone(),
-                    color,
-                }
+            .into_iter()
+            .map(|(point, color)| ColoredPoint {
+                position: point.position,
+                color,
             })
             .collect();
     }
@@ -102,14 +124,6 @@ impl State {
         self.points.iter().for_each(|point| {
             let ColoredPoint { position, color } = point;
             window.draw_point(position, color);
-        });
-
-        // Draw 3D bbox segments
-        self.objects.iter().for_each(|obj| {
-            let ColoredSegmentSet { segments, color } = &obj.bbox_segments;
-            segments.iter().for_each(|[pa, pb]| {
-                window.draw_line(pa, pb, color);
-            });
         });
     }
 
@@ -140,12 +154,6 @@ impl kiss3d::window::State for State {
             Ok(msg) => {
                 // update GUI state
                 self.update_msg(msg);
-
-                // if let Err(err) = result {
-                //     window.close();
-                //     log_error!(env!("CARGO_PKG_NAME"), "kiss3d gui error: {}", err);
-                //     return;
-                // }
             }
             Err(flume::TryRecvError::Empty) => {}
             Err(flume::TryRecvError::Disconnected) => {
@@ -172,32 +180,6 @@ impl kiss3d::window::State for State {
 struct ColoredPoint {
     pub position: na::Point3<f32>,
     pub color: na::Point3<f32>,
-}
-
-#[derive(Clone)]
-struct ColoredSegmentSet {
-    pub segments: Vec<[na::Point3<f32>; 2]>,
-    pub color: na::Point3<f32>,
-}
-
-struct Object3D {
-    bbox_segments: ColoredSegmentSet,
-    transform: na::Isometry3<f32>,
-    size_xyz: [f32; 3],
-}
-
-impl Object3D {
-    pub fn contains_point(&self, point: &na::Point3<f32>) -> bool {
-        let point = self.transform.inverse() * point;
-        let [sx, sy, sz] = self.size_xyz;
-
-        let check_range = |sz: f32, value: f32| {
-            let hsz = sz / 2.0;
-            ((-hsz)..=hsz).contains(&value)
-        };
-
-        check_range(sx, point.x) && check_range(sy, point.y) && check_range(sz, point.z)
-    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, FromPrimitive)]

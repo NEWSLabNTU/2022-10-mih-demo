@@ -5,6 +5,8 @@ mod message;
 mod opencv_gui;
 mod rate_meter;
 mod yaml_loader;
+mod rect_rtree;
+mod utils;
 
 use crate::{config::Config, message as msg, rate_meter::RateMeter};
 use anyhow::Result;

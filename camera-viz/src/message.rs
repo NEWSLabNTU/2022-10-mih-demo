@@ -1,10 +1,19 @@
 use nalgebra as na;
-use opencv::{core::Rect, prelude::*};
+use opencv::{
+    core::{Point2f, Rect},
+    prelude::*,
+};
+use ownref::ArcRefA as ARef;
 use r2r::{
     sensor_msgs::msg::{Image, PointCloud2},
     vision_msgs::msg::Detection2DArray,
 };
-use std::sync::Arc;
+
+pub type ArcPointVec = ARef<'static, Vec<Point>>;
+pub type ArcPoint = ARef<'static, Vec<Point>, Point>;
+pub type ArcRectVec = ARef<'static, Vec<Rect>>;
+pub type ArcRect = ARef<'static, Vec<Rect>, Rect>;
+pub type ArcAssocVec = ARef<'static, Vec<Association>>;
 
 #[derive(Debug)]
 pub enum InputMessage {
@@ -40,16 +49,25 @@ pub struct FuseMessage {
 #[derive(Debug)]
 pub struct OpencvGuiMessage {
     pub image: Mat,
-    pub rects: Arc<Vec<Rect>>,
+    pub rects: ArcRectVec,
+    pub assocs: Option<ArcAssocVec>,
 }
 
 #[derive(Debug)]
 pub struct Kiss3dMessage {
-    pub points: Arc<Vec<Point>>,
+    pub points: ArcPointVec,
+    pub assocs: Option<ArcAssocVec>,
 }
 
 #[derive(Debug)]
 pub struct Point {
     pub position: na::Point3<f32>,
     pub intensity: f32,
+}
+
+#[derive(Debug)]
+pub struct Association {
+    pub pcd_point: ArcPoint,
+    pub img_point: Point2f,
+    pub rect: Option<ArcRect>,
 }

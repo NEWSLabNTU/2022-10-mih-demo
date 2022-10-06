@@ -1,12 +1,13 @@
-use crate::message as msg;
+use crate::{message as msg, utils::sample_rgb};
 use anyhow::Result;
 use async_std::task::spawn_blocking;
 use futures::prelude::*;
-use opencv::{core::Rect, highgui, prelude::*};
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
+use opencv::{
+    core::{Point2f, Point2i, Scalar},
+    highgui, imgproc,
+    prelude::*,
 };
+use std::time::{Duration, Instant};
 
 const INTERVAL: Duration = Duration::from_millis(100);
 
@@ -46,7 +47,6 @@ pub async fn start(stream: impl Stream<Item = msg::OpencvGuiMessage> + Unpin + S
 #[derive(Default)]
 struct State {
     image: Option<Mat>,
-    rects: Option<Arc<Vec<Rect>>>,
 }
 
 impl State {
@@ -60,9 +60,58 @@ impl State {
     }
 
     fn update(&mut self, msg: msg::OpencvGuiMessage) {
-        let msg::OpencvGuiMessage { image, rects } = msg;
+        let msg::OpencvGuiMessage {
+            mut image,
+            rects,
+            assocs,
+        } = msg;
+
+        // Draw rectangles
+        rects.clone().flatten().for_each(|rect: msg::ArcRect| {
+            // Sample color using the pointer value of ArcRefC
+            let [r, g, b] = sample_rgb(&rect);
+            let color = Scalar::new(b, g, r, 0.0);
+
+            imgproc::rectangle(
+                &mut image,
+                *rect,
+                color,
+                1, // thickness
+                imgproc::LINE_8,
+                0, // shift
+            )
+            .unwrap();
+        });
+
+        // Draw points
+        if let Some(assocs) = assocs {
+            assocs.iter().for_each(|assoc| {
+                let color = {
+                    let [r, g, b] = if let Some(rect) = &assoc.rect {
+                        sample_rgb(rect)
+                    } else {
+                        [0.1, 0.1, 0.1]
+                    };
+                    Scalar::new(b, g, r, 0.0)
+                };
+                let center = {
+                    let Point2f { x, y } = assoc.img_point;
+                    Point2i::new(x.round() as i32, y.round() as i32)
+                };
+
+                imgproc::circle(
+                    &mut image,
+                    center,
+                    1, // radius
+                    color,
+                    1, // thickness
+                    imgproc::LINE_8,
+                    0, // shift
+                )
+                .unwrap();
+            });
+        }
+
         self.image = Some(image);
-        self.rects = Some(rects);
-        todo!();
     }
 }
