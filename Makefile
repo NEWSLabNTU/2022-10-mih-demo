@@ -19,7 +19,7 @@ pull_and_build_dependencies:
 
 	@echo 'Build dependent repositories' >&2
 	cd repos && \
-	colcon build
+	colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 clean:
 	cargo clean
