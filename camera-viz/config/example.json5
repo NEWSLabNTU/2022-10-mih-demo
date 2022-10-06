@@ -4,5 +4,12 @@
     "pcd_topic": "pcd",
     "img_topic": "img",
     "det_topic": "det",
-    "calibration_file": "../../data/kneron.intrinsics.yaml",
+
+    // Kneron camera
+    "intrinsics_file": "../../data/kneron.intrinsics.yaml",
+    "extrinsics_file": "../../data/kneron.extrinsics.yaml",
+
+    // Otobrite camera
+    // "intrinsics_file": "../../data/kneron.intrinsics.yaml",
+    // "extrinsics_file": "../../data/kneron.extrinsics.yaml",
 }
