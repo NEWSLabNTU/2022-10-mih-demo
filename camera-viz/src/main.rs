@@ -2,6 +2,7 @@ mod config;
 mod kiss3d_gui;
 mod opencv_gui;
 mod rate_meter;
+mod yaml_loader;
 
 use crate::{config::Config, rate_meter::RateMeter};
 use anyhow::Result;

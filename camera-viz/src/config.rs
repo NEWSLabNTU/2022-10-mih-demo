@@ -1,10 +1,10 @@
 use std::mem;
 
+use crate::yaml_loader::YamlPath;
 use anyhow::{ensure, Result};
 use nalgebra as na;
 use noisy_float::prelude::*;
 use serde::Deserialize;
-use serde_loader::AbsPathBuf;
 use serde_semver::SemverReq;
 
 #[derive(Debug, Clone, SemverReq)]
@@ -29,7 +29,7 @@ pub struct Config {
     pub det_topic: String,
 
     /// The calibration file.
-    pub calibration_file: AbsPathBuf,
+    pub calibration_file: YamlPath<MrptCalibration>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
