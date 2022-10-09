@@ -1,25 +1,23 @@
-use anyhow::{ensure, Result};
-use async_std::task::{spawn_blocking, JoinHandle};
-use flume::RecvTimeoutError;
+use crate::{message as msg, utils::sample_rgb};
+use anyhow::Result;
+use async_std::task::spawn_blocking;
+use futures::prelude::*;
 use opencv::{
-    core::{Rect, Scalar, Vec3b, VecN, CV_8UC3},
-    highgui,
+    core::{Point2f, Point2i, Scalar},
+    highgui, imgproc,
     prelude::*,
-};
-use r2r::{
-    geometry_msgs::msg::Pose2D,
-    log_error,
-    sensor_msgs::msg::Image,
-    vision_msgs::msg::{BoundingBox2D, Detection2DArray},
 };
 use std::time::{Duration, Instant};
 
 const INTERVAL: Duration = Duration::from_millis(100);
 
-pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
+pub async fn start(stream: impl Stream<Item = msg::OpencvGuiMessage> + Unpin + Send) -> Result<()> {
     let (tx, rx) = flume::bounded(2);
 
-    let handle = spawn_blocking(move || {
+    let forward_future = stream.map(Ok).forward(tx.into_sink()).map(|_result| ());
+    let handle_future = spawn_blocking(move || {
+        use flume::RecvTimeoutError as E;
+
         let mut state = State::default();
         let mut until = Instant::now() + INTERVAL;
 
@@ -31,8 +29,8 @@ pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
                         continue;
                     }
                 }
-                Err(RecvTimeoutError::Disconnected) => break,
-                Err(RecvTimeoutError::Timeout) => {}
+                Err(E::Disconnected) => break,
+                Err(E::Timeout) => {}
             }
 
             state.step()?;
@@ -42,13 +40,13 @@ pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
         anyhow::Ok(())
     });
 
-    (handle, tx)
+    futures::try_join!(forward_future.map(|()| anyhow::Ok(())), handle_future)?;
+    Ok(())
 }
 
 #[derive(Default)]
 struct State {
     image: Option<Mat>,
-    rects: Vec<Rect>,
 }
 
 impl State {
@@ -61,97 +59,59 @@ impl State {
         Ok(())
     }
 
-    fn update(&mut self, msg: Message) {
-        match msg {
-            Message::Image(image) => {
-                self.update_image(image);
-            }
-            Message::BBox(bbox) => {
-                self.update_det(bbox);
-            }
+    fn update(&mut self, msg: msg::OpencvGuiMessage) {
+        let msg::OpencvGuiMessage {
+            mut image,
+            rects,
+            assocs,
+        } = msg;
+
+        // Draw rectangles
+        rects.clone().flatten().for_each(|rect: msg::ArcRect| {
+            // Sample color using the pointer value of ArcRefC
+            let [r, g, b] = sample_rgb(&rect);
+            let color = Scalar::new(b, g, r, 0.0);
+
+            imgproc::rectangle(
+                &mut image,
+                *rect,
+                color,
+                1, // thickness
+                imgproc::LINE_8,
+                0, // shift
+            )
+            .unwrap();
+        });
+
+        // Draw points
+        if let Some(assocs) = assocs {
+            assocs.iter().for_each(|assoc| {
+                let color = {
+                    let [r, g, b] = if let Some(rect) = &assoc.rect {
+                        sample_rgb(rect)
+                    } else {
+                        [0.1, 0.1, 0.1]
+                    };
+                    Scalar::new(b, g, r, 0.0)
+                };
+                let center = {
+                    let Point2f { x, y } = assoc.img_point;
+                    Point2i::new(x.round() as i32, y.round() as i32)
+                };
+
+                imgproc::circle(
+                    &mut image,
+                    center,
+                    1, // radius
+                    color,
+                    1, // thickness
+                    imgproc::LINE_8,
+                    0, // shift
+                )
+                .unwrap();
+            });
         }
-    }
 
-    fn update_image(&mut self, image: Image) {
-        let mat = match image2mat(&image) {
-            Ok(mat) => mat,
-            Err(err) => {
-                log_error!(env!("CARGO_PKG_NAME"), "invalid input image: {}", err);
-                return;
-            }
-        };
-        self.image = Some(mat);
-    }
-
-    fn update_det(&mut self, array: Detection2DArray) {
-        self.rects = array
-            .detections
-            .iter()
-            .map(|det| {
-                let BoundingBox2D {
-                    size_x,
-                    size_y,
-                    center: Pose2D { x: cx, y: cy, .. },
-                } = det.bbox;
-
-                // left-top x and y
-                let ltx = cx - size_x / 2.0;
-                let lty = cy - size_y / 2.0;
-
-                Rect {
-                    x: ltx as i32,
-                    y: lty as i32,
-                    width: size_x as i32,
-                    height: size_y as i32,
-                }
-            })
-            .collect();
-    }
-}
-
-fn image2mat(image: &Image) -> Result<Mat> {
-    let Image {
-        height,
-        width,
-        ref encoding,
-        is_bigendian,
-        step,
-        ref data,
-        ..
-    } = *image;
-
-    ensure!(encoding == "bgr8");
-    ensure!(is_bigendian == 0);
-    ensure!(step == width * 3);
-    ensure!(data.len() == step as usize * height as usize);
-
-    let mut mat =
-        Mat::new_rows_cols_with_default(height as i32, width as i32, CV_8UC3, Scalar::all(0.0))?;
-
-    data.chunks_exact(3).enumerate().for_each(|(pidx, bytes)| {
-        let col = pidx % width as usize;
-        let row = pidx / width as usize;
-        let pixel: &mut Vec3b = mat.at_2d_mut(row as i32, col as i32).unwrap();
-        let bytes: [u8; 3] = bytes.try_into().unwrap();
-        *pixel = VecN(bytes);
-    });
-
-    Ok(mat)
-}
-
-pub enum Message {
-    Image(Image),
-    BBox(Detection2DArray),
-}
-
-impl From<Detection2DArray> for Message {
-    fn from(v: Detection2DArray) -> Self {
-        Self::BBox(v)
-    }
-}
-
-impl From<Image> for Message {
-    fn from(v: Image) -> Self {
-        Self::Image(v)
+        self.image = Some(image);
     }
 }

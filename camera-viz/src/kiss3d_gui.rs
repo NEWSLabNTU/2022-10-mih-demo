@@ -1,5 +1,9 @@
-use anyhow::Result;
-use async_std::task::{spawn_blocking, JoinHandle};
+use std::collections::HashMap;
+
+use crate::{message as msg, utils::sample_rgb};
+use async_std::task::spawn_blocking;
+use futures::prelude::*;
+use itertools::chain;
 use kiss3d::{
     camera::{ArcBall, Camera},
     event::{Action, Key, Modifiers, WindowEvent},
@@ -11,15 +15,13 @@ use kiss3d::{
 };
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use r2r::{
-    log_warn,
-    sensor_msgs::msg::{PointCloud2, PointField},
-};
 
-pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
+pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send) {
     let (tx, rx) = flume::bounded(2);
 
-    let handle = spawn_blocking(move || {
+    let forward_future = stream.map(Ok).forward(tx.into_sink()).map(|_result| ());
+
+    let handle_future = spawn_blocking(move || {
         let window = {
             let mut window = Window::new("demo");
             window.set_light(Light::StickToCamera);
@@ -32,23 +34,20 @@ pub fn start() -> (JoinHandle<Result<()>>, flume::Sender<Message>) {
         camera.set_up_axis(na::Vector3::new(0.0, 0.0, 1.0));
         let state = State {
             points: vec![],
-            objects: vec![],
             rx,
             camera,
             point_color_mode: PointColorMode::default(),
         };
         window.render_loop(state);
-        anyhow::Ok(())
     });
 
-    (handle, tx)
+    futures::join!(forward_future, handle_future);
 }
 
 struct State {
     point_color_mode: PointColorMode,
     points: Vec<ColoredPoint>,
-    objects: Vec<Object3D>,
-    rx: flume::Receiver<Message>,
+    rx: flume::Receiver<msg::Kiss3dMessage>,
     camera: ArcBall,
 }
 
@@ -78,81 +77,41 @@ impl State {
 
     fn process_key_event() {}
 
-    fn update_msg(&mut self, msg: Message) {
-        match msg {
-            Message::PointCloud2(pcd) => self.update_point_cloud(pcd),
-        }
-    }
+    fn update_msg(&mut self, msg: msg::Kiss3dMessage) {
+        let msg::Kiss3dMessage { points, assocs } = msg;
 
-    fn update_point_cloud(&mut self, pcd: PointCloud2) {
-        let [fx, fy, fz, fi] = match pcd.fields.get(0..4) {
-            Some([f1, f2, f3, f4]) => [f1, f2, f3, f4],
-            Some(_) => unreachable!(),
-            None => {
-                log_warn!(
-                    env!("CARGO_PKG_NAME"),
-                    "Ignore a point cloud message with less then 3 fields"
-                );
-                return;
-            }
-        };
+        // Collect background points
+        let background_points = points.flatten().map(|point: msg::ArcPoint| {
+            let color = na::Point3::new(0.3, 0.3, 0.3);
+            (point, color)
+        });
 
-        if !(fx.name == "x" && fy.name == "y" && fz.name == "z" && fi.name == "intensity") {
-            log_warn!(
-                env!("CARGO_PKG_NAME"),
-                "Ignore a point cloud message with incorrect field name"
-            );
-            return;
-        }
+        // Collect points that are inside at least one bbox
+        let object_points = assocs
+            .as_ref()
+            .map(|assocs: &msg::ArcAssocVec| {
+                assocs.iter().filter_map(|assoc: &msg::Association| {
+                    let point: msg::ArcPoint = assoc.pcd_point.clone();
+                    let rect: &msg::ArcRect = assoc.rect.as_ref()?;
+                    let [r, g, b] = sample_rgb(rect);
+                    let color = na::Point3::new(r as f32, g as f32, b as f32);
+                    Some((point, color))
+                })
+            })
+            .into_iter()
+            .flatten();
 
-        let check_field = |field: &PointField| {
-            let PointField {
-                datatype, count, ..
-            } = *field;
+        // Merge background and object points into a hash map, indexed
+        // by pointer address of points.
+        let points: HashMap<msg::ArcPoint, na::Point3<f32>> =
+            chain!(background_points, object_points).collect();
 
-            // reject non-f64 or non-single-value fields
-            if !(datatype == 7 && count == 1) {
-                log_warn!(
-                    env!("CARGO_PKG_NAME"),
-                    "Ignore a point cloud message with non-f64 or non-single-value values"
-                );
-                return false;
-            }
-
-            true
-        };
-        if !(check_field(fx) && check_field(fy) && check_field(fz) && check_field(fi)) {
-            return;
-        }
-
-        if pcd.point_step != 16 {
-            log_warn!(
-                env!("CARGO_PKG_NAME"),
-                "Ignore a point cloud message with incorrect point_step (expect 16)"
-            );
-            return;
-        }
-
-        self.points = pcd
-            .data
-            .chunks(pcd.point_step as usize)
-            .map(|point_bytes| {
-                let xbytes = &point_bytes[0..4];
-                let ybytes = &point_bytes[4..8];
-                let zbytes = &point_bytes[8..12];
-                let ibytes = &point_bytes[12..16];
-
-                let x = f32::from_le_bytes(xbytes.try_into().unwrap());
-                let y = f32::from_le_bytes(ybytes.try_into().unwrap());
-                let z = f32::from_le_bytes(zbytes.try_into().unwrap());
-                let intensity = f32::from_le_bytes(ibytes.try_into().unwrap());
-
-                let position = na::Point3::new(x, y, z);
-
-                let nint = intensity / 100.0; // normalized intensity
-                                              // let color = na::Point3::new(nint, nint, nint);
-                let color = na::Point3::new(0.3, 0.3, 0.3);
-                ColoredPoint { position, color }
+        // Store points along with their colors
+        self.points = points
+            .into_iter()
+            .map(|(point, color)| ColoredPoint {
+                position: point.position,
+                color,
             })
             .collect();
     }
@@ -165,14 +124,6 @@ impl State {
         self.points.iter().for_each(|point| {
             let ColoredPoint { position, color } = point;
             window.draw_point(position, color);
-        });
-
-        // Draw 3D bbox segments
-        self.objects.iter().for_each(|obj| {
-            let ColoredSegmentSet { segments, color } = &obj.bbox_segments;
-            segments.iter().for_each(|[pa, pb]| {
-                window.draw_line(pa, pb, color);
-            });
         });
     }
 
@@ -203,12 +154,6 @@ impl kiss3d::window::State for State {
             Ok(msg) => {
                 // update GUI state
                 self.update_msg(msg);
-
-                // if let Err(err) = result {
-                //     window.close();
-                //     log_error!(env!("CARGO_PKG_NAME"), "kiss3d gui error: {}", err);
-                //     return;
-                // }
             }
             Err(flume::TryRecvError::Empty) => {}
             Err(flume::TryRecvError::Disconnected) => {
@@ -235,42 +180,6 @@ impl kiss3d::window::State for State {
 struct ColoredPoint {
     pub position: na::Point3<f32>,
     pub color: na::Point3<f32>,
-}
-
-#[derive(Clone)]
-struct ColoredSegmentSet {
-    pub segments: Vec<[na::Point3<f32>; 2]>,
-    pub color: na::Point3<f32>,
-}
-
-pub enum Message {
-    PointCloud2(PointCloud2),
-}
-
-impl From<PointCloud2> for Message {
-    fn from(v: PointCloud2) -> Self {
-        Self::PointCloud2(v)
-    }
-}
-
-struct Object3D {
-    bbox_segments: ColoredSegmentSet,
-    transform: na::Isometry3<f32>,
-    size_xyz: [f32; 3],
-}
-
-impl Object3D {
-    pub fn contains_point(&self, point: &na::Point3<f32>) -> bool {
-        let point = self.transform.inverse() * point;
-        let [sx, sy, sz] = self.size_xyz;
-
-        let check_range = |sz: f32, value: f32| {
-            let hsz = sz / 2.0;
-            ((-hsz)..=hsz).contains(&value)
-        };
-
-        check_range(sx, point.x) && check_range(sy, point.y) && check_range(sz, point.z)
-    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, FromPrimitive)]
