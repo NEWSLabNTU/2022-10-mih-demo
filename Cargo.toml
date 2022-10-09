@@ -4,6 +4,7 @@ members = [
     "kneron-bbox-server-node",
     "camera-viz",
     "aw-viz",
+    "det-conv-node",
 ]
 
 [patch.crates-io]
