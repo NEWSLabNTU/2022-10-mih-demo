@@ -50,16 +50,27 @@ cargo build --all-targets --release
 
 ## Usage
 
-### Run the visualizer for Otobrite and Kneron cameras
+### (A) Publish Velodyne LiDAR Point Clouds
 
-Modify input topic names in the `camera-viz/config/example.json5`
-configuration file. Then,
+Edit the configuration file. Specify the LiDAR device IP address in
+the `device_ip` field.
 
-```bash
-./target/release/camera-viz --config camera-viz/config/example.json5
+```
+./repos/velodyne/velodyne_driver/config/VLP32C-velodyne_driver_node-params.yaml
 ```
 
-### 2D Detection Server for Kneron Camera
+Run the following commands in two separate terminals.
+
+```bash
+# Terminal 1
+ros2 launch velodyne_driver velodyne_driver_node-VLP32C-launch.py
+
+# Terminal 2
+ros2 launch velodyne_pointcloud velodyne_convert_node-VLP32C-launch.py
+```
+
+
+### (B) Run 2D Detection Server for Kneron Camera
 
 To retrieve detected bounding boxes from a Kneron camera, connect the
 Kneron board via Ethernet cable. Set the network static address to
@@ -69,7 +80,20 @@ Kneron board via Ethernet cable. Set the network static address to
 ./target/release/kneron-bbox-server-node
 ```
 
-### Run the visualizer for Autoware `lidar_centerpoint`
+
+### (C) Run the Visualizer for Otobrite and Kneron cameras
+
+Modify input topic names in the `camera-viz/config/example.json5`
+configuration file. Then,
+
+```bash
+./target/release/camera-viz --config camera-viz/config/example.json5
+```
+
+Before running the visualizer, you may run (A) and (B) first to enable
+live bbox and point cloud data feed.
+
+### (D) Run the visualizer for Autoware `lidar_centerpoint`
 
 Modify input topic names in the `aw-viz/config/example.json5`
 configuration file. Then,
@@ -77,3 +101,6 @@ configuration file. Then,
 ```bash
 ./target/release/aw-viz --config aw-viz/config/example.json5
 ```
+
+Before running the visualizer, you may run (A) first to enable live
+ point cloud data feed.
