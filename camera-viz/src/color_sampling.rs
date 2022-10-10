@@ -51,16 +51,21 @@ where
     T: Hash,
     S: BuildHasher,
 {
+    // Compute the hash of the input seed.
     let hash = {
         let mut hasher = build_hasher.build_hasher();
         seed.hash(&mut hasher);
         hasher.finish()
     };
+
+    // Pick a color in HSV space.
     let hsv = Hsv::new(
         RgbHue::from_degrees((hash.wrapping_mul(79) % 360) as f64),
         saturation,
         value,
     );
+
+    // Convert the HSV color to RGB space.
     let (r, g, b) = Srgb::from_color(hsv).into_components();
     [r, g, b]
 }

@@ -2,8 +2,8 @@ use anyhow::Result;
 use async_std::task::spawn_blocking;
 use clap::Parser;
 use futures::{
-    future::FutureExt as _, future::TryFutureExt as _, stream::StreamExt as _,
-    stream::TryStreamExt as _,
+    future::{FutureExt as _, TryFutureExt as _},
+    stream::{StreamExt as _, TryStreamExt as _},
 };
 use r2r::{
     autoware_auto_perception_msgs::msg::{

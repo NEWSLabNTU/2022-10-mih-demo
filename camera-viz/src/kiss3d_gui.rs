@@ -16,31 +16,42 @@ use kiss3d::{
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
+/// Starts the Kiss3d GUI interface.
 pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send) {
+    // Creates a channel.
     let (tx, rx) = flume::bounded(2);
 
+    // Creates a future that forwards stream messages to the channel.
     let forward_future = stream.map(Ok).forward(tx.into_sink()).map(|_result| ());
 
+    // Spawn a non-async thread that runs Kiss3d loops.
     let handle_future = spawn_blocking(move || {
+        // Creates a window.
         let window = {
             let mut window = Window::new("demo");
             window.set_light(Light::StickToCamera);
             window
         };
+        // Configure the spectator camera.
         let mut camera = ArcBall::new(
             na::Point3::new(0.0, -80.0, 32.0),
             na::Point3::new(0.0, 0.0, 0.0),
         );
         camera.set_up_axis(na::Vector3::new(0.0, 0.0, 1.0));
+
+        // Initialize the state
         let state = State {
             points: vec![],
             rx,
             camera,
             point_color_mode: PointColorMode::default(),
         };
+
+        // Run rendering loops. It repeated calls state.step() method.
         window.render_loop(state);
     });
 
+    // Wait for all futures to finish.
     futures::join!(forward_future, handle_future);
 }
 
@@ -52,6 +63,7 @@ struct State {
 }
 
 impl State {
+    // Process pending events.
     fn process_events(&mut self, window: &mut Window) {
         window.events().iter().for_each(|evt| {
             use WindowEvent as E;
@@ -65,6 +77,7 @@ impl State {
         });
     }
 
+    // Process pending keyboard events.
     fn process_key_event(&mut self, key: Key, action: Action, mods: Modifiers) {
         use Action as A;
         use Key as K;
@@ -82,6 +95,7 @@ impl State {
         }
     }
 
+    // A callback method called when a message arrives.
     fn update_msg(&mut self, msg: msg::Kiss3dMessage) {
         let msg::Kiss3dMessage {
             points,
@@ -135,6 +149,7 @@ impl State {
         });
     }
 
+    // A helper method to draw XYZ axis.
     fn draw_axis(&self, window: &mut Window) {
         let origin = na::Point3::new(0.0, 0.0, 0.0);
         window.draw_line(
@@ -156,6 +171,7 @@ impl State {
 }
 
 impl kiss3d::window::State for State {
+    /// A function to process rendering steps.
     fn step(&mut self, window: &mut Window) {
         // Process events
         self.process_events(window);
@@ -166,13 +182,17 @@ impl kiss3d::window::State for State {
                 // update GUI state
                 self.update_msg(msg);
             }
-            Err(flume::TryRecvError::Empty) => {}
+            Err(flume::TryRecvError::Empty) => {
+                // Fall-through if the channel is empty.
+            }
             Err(flume::TryRecvError::Disconnected) => {
+                // Close the window if the channel is closed.
                 window.close();
                 return;
             }
         }
 
+        // Run rendering.
         self.render(window);
     }
 
@@ -188,11 +208,13 @@ impl kiss3d::window::State for State {
     }
 }
 
+/// A point position with an RGB color.
 struct ColoredPoint {
     pub position: na::Point3<f32>,
     pub color: na::Point3<f32>,
 }
 
+/// A enum value marking the current point coloring method.
 #[derive(Clone, Copy, PartialEq, Eq, FromPrimitive)]
 #[repr(usize)]
 enum PointColorMode {

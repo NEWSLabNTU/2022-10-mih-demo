@@ -2,12 +2,14 @@ use crate::message as msg;
 use opencv::core::{Point2f, Rect};
 use rstar::{primitives::Rectangle, Envelope, Point, PointDistance, RTree, RTreeObject, AABB};
 
+/// An R-Tree storing spatially indexed rectangles.
 #[derive(Debug)]
 pub struct RectRTree {
     rtree: RTree<Entry>,
 }
 
 impl RectRTree {
+    /// Finds a rectangle containing the query point.
     pub fn find(&self, point: &Point2f) -> Option<msg::ArcRect> {
         let Point2f { x, y } = *point;
         self.rtree
@@ -27,6 +29,7 @@ impl FromIterator<msg::ArcRect> for RectRTree {
     }
 }
 
+/// An entry of the RectRTree.
 #[derive(Debug)]
 struct Entry {
     rect: msg::ArcRect,

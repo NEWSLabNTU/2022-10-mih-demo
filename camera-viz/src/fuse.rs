@@ -1,19 +1,15 @@
 use crate::{
-    config::{Config, ExtrinsicsData, MrptCalibration},
+    config::Config,
     message as msg,
+    point_projection::{CameraParams, PointProjector},
     rect_rtree::RectRTree,
 };
 use anyhow::{bail, ensure, Result};
 use async_std::task::spawn_blocking;
-use cv_convert::{FromCv, OpenCvPose};
 use futures::prelude::*;
-use itertools::{chain, izip};
+use itertools::chain;
 use nalgebra as na;
-use opencv::{
-    calib3d,
-    core::{no_array, Point2f, Point3f, Rect, Vector},
-    prelude::*,
-};
+use opencv::{core::Rect, prelude::*};
 use ownref::ArcRefA as ARef;
 use r2r::{
     geometry_msgs::msg::Pose2D,
@@ -22,22 +18,36 @@ use r2r::{
     vision_msgs::msg::{BoundingBox2D, Detection2DArray},
 };
 
+/// Starts a image and point cloud fusing processor.
+///
+/// # Parameters
+/// - `input_stream`: the stream to be transformed.
+/// - `config`: Configuration data.
 pub fn start(
     input_stream: impl Stream<Item = msg::InputMessage> + Unpin + Send,
     config: &Config,
 ) -> Result<impl Stream<Item = msg::FuseMessage> + Send> {
+    // Initialize the state
     let mut state = State::new(config)?;
+
+    // Create an input and an output channels.
     let (input_tx, input_rx) = flume::bounded(2);
     let (output_tx, output_rx) = flume::bounded(2);
 
+    // Forward the stream to the input channel.
     let forward_future = input_stream
         .map(Ok)
         .forward(input_tx.into_sink())
         .map(|_result| ());
 
+    // Spawn a non-async loop task that updates the state whenever a
+    // message arrives.
     let handle_future = spawn_blocking(move || {
         'msg_loop: while let Ok(in_msg) = input_rx.recv() {
-            let result = state.update_msg(in_msg);
+            // Update the state
+            let result = state.map_msg(in_msg);
+
+            // Print log if an error is returned
             let out_msgs = match result {
                 Ok(msgs) => msgs,
                 Err(err) => {
@@ -50,6 +60,7 @@ pub fn start(
                 }
             };
 
+            // Forward the output messages to the output channel.
             for msg in out_msgs {
                 let result = output_tx.send(msg);
                 if result.is_err() {
@@ -59,6 +70,7 @@ pub fn start(
         }
     });
 
+    // Turn the receiver of the output channel to a stream and return it.
     let output_stream = output_rx.into_stream().take_until(async move {
         futures::join!(forward_future, handle_future);
     });
@@ -66,58 +78,7 @@ pub fn start(
     Ok(output_stream)
 }
 
-struct PointProjector {
-    height: usize,
-    width: usize,
-    camera_params: CameraParams,
-}
-
-impl PointProjector {
-    pub fn map(
-        &self,
-        points: &msg::ArcPointVec,
-    ) -> impl Iterator<Item = (msg::ArcPoint, Point2f)> + Send {
-        let CameraParams {
-            rvec,
-            tvec,
-            camera_matrix,
-            distortion_coefficients,
-        } = &self.camera_params;
-
-        // Project points onto the image
-        let object_points: Vector<Point3f> = points
-            .iter()
-            .map(|point| &point.position)
-            .map(Point3f::from_cv)
-            .collect();
-        let mut image_points: Vector<Point2f> = Vector::new();
-
-        calib3d::project_points(
-            &object_points,
-            rvec,
-            tvec,
-            camera_matrix,
-            distortion_coefficients,
-            &mut image_points,
-            &mut no_array(), // jacobian
-            0.0,             // aspect_ratio
-        )
-        .unwrap();
-
-        // Pair up 3D and 2D points
-        let point_pairs = izip!(points.clone().flatten(), image_points);
-
-        // Filter out out-of-bound projected points
-        let width_range = 0.0..=(self.width as f32);
-        let height_range = 0.0..=(self.height as f32);
-        let inbound_points = point_pairs.filter(move |(_pcd_point, img_point)| {
-            width_range.contains(&img_point.x) && height_range.contains(&img_point.y)
-        });
-
-        inbound_points
-    }
-}
-
+/// The state maintained by the fusing algorithm.
 struct State {
     cache: Cache,
     otobrite_projector: PointProjector,
@@ -125,6 +86,7 @@ struct State {
 }
 
 impl State {
+    /// Creata a new state.
     pub fn new(config: &Config) -> Result<Self> {
         let otobrite_projector = {
             let [h, w] = config.otobrite_image_hw;
@@ -160,7 +122,8 @@ impl State {
         })
     }
 
-    pub fn update_msg(&mut self, in_msg: msg::InputMessage) -> Result<Vec<msg::FuseMessage>> {
+    /// Map an input message to a vec of output messages.
+    pub fn map_msg(&mut self, in_msg: msg::InputMessage) -> Result<Vec<msg::FuseMessage>> {
         use msg::InputMessage as M;
         let out_msgs: Vec<msg::FuseMessage> = match in_msg {
             M::PointCloud2(pcd) => {
@@ -242,6 +205,7 @@ impl State {
         Ok(out_msgs)
     }
 
+    /// Processes a Kneron detection message and updates its state.
     pub fn update_kneron_det(&mut self, det: Detection2DArray) {
         let rects: Vec<_> = det
             .detections
@@ -275,6 +239,7 @@ impl State {
         self.update_kneron_assocs();
     }
 
+    /// Processes an image from the Otobrite camera.
     pub fn update_otobrite_image(&mut self, image: Image) -> Result<()> {
         // Check image size
         {
@@ -300,6 +265,7 @@ impl State {
         Ok(())
     }
 
+    /// Processes a point cloud message from LiDAR.
     pub fn update_pcd(&mut self, pcd: PointCloud2) -> Result<()> {
         let points = pcd_to_points(&pcd)?;
         self.cache.points = Some(ARef::new(points));
@@ -309,6 +275,7 @@ impl State {
         Ok(())
     }
 
+    /// Compute LiDAR points to Otobrite image points associations.
     fn update_otobrite_assocs(&mut self) {
         let points = match self.cache.points.as_ref() {
             Some(points) => points,
@@ -327,14 +294,18 @@ impl State {
         self.cache.otobrite_assocs = Some(ARef::new(assocs));
     }
 
+    /// Compute LiDAR points to Kneron image points associations.
     fn update_kneron_assocs(&mut self) {
         let points = match &self.cache.points {
             Some(points) => points,
             None => return,
         };
+
+        // Compute projected 2D points.
         let pairs = self.kneron_projector.map(points);
 
-        let assocs: Vec<_> = match &self.cache.kneron_bboxes {
+        // Associate points with bboxes if bboxes are available.
+        let assocs: Vec<msg::Association> = match &self.cache.kneron_bboxes {
             Some(bboxes) => pairs
                 .map(|(pcd_point, img_point)| {
                     let rect = bboxes.index.find(&img_point);
@@ -358,27 +329,7 @@ impl State {
     }
 }
 
-struct CameraParams {
-    rvec: Mat,
-    tvec: Mat,
-    camera_matrix: Mat,
-    distortion_coefficients: Mat,
-}
-
-impl CameraParams {
-    pub fn new(intrinsics: &MrptCalibration, extrinsics: &ExtrinsicsData) -> Result<Self> {
-        let OpenCvPose { rvec, tvec } = extrinsics.to_opencv()?;
-        let camera_matrix = intrinsics.camera_matrix.to_opencv();
-        let distortion_coefficients = intrinsics.distortion_coefficients.to_opencv();
-        Ok(Self {
-            rvec,
-            tvec,
-            camera_matrix,
-            distortion_coefficients,
-        })
-    }
-}
-
+/// The cache stores computed point cloud, image and detection  data.
 #[derive(Default)]
 struct Cache {
     points: Option<msg::ArcPointVec>,
@@ -388,12 +339,15 @@ struct Cache {
     kneron_assocs: Option<msg::ArcAssocVec>,
 }
 
+/// Contains a vec of bboxes and a spatial R-Tree of bboxes.
 struct BBoxIndex {
     rects: msg::ArcRectVec,
     index: RectRTree,
 }
 
+/// Converts a ROS point cloud to a vec of points.
 pub fn pcd_to_points(pcd: &PointCloud2) -> Result<Vec<msg::Point>> {
+    // Assert the point cloud has 4 fields. Otherwise return error.
     let [fx, fy, fz, fi] = match pcd.fields.get(0..4) {
         Some([f1, f2, f3, f4]) => [f1, f2, f3, f4],
         Some(_) => unreachable!(),
@@ -402,10 +356,12 @@ pub fn pcd_to_points(pcd: &PointCloud2) -> Result<Vec<msg::Point>> {
         }
     };
 
+    // Assert the fields are named x, y, z and intensity. Otherwise return error.
     if !(fx.name == "x" && fy.name == "y" && fz.name == "z" && fi.name == "intensity") {
         bail!("Ignore a point cloud message with incorrect field name");
     }
 
+    // Assert each field is of f32 type and contains a single value. Otherwise, return error.
     let check_field = |field: &PointField| {
         let PointField {
             datatype, count, ..
@@ -424,11 +380,13 @@ pub fn pcd_to_points(pcd: &PointCloud2) -> Result<Vec<msg::Point>> {
     check_field(fz)?;
     check_field(fi)?;
 
+    // Assert a point is 16 bytes (4 x f32 values). Otherwise, return error.
     if pcd.point_step != 16 {
         bail!("Ignore a point cloud message with incorrect point_step (expect 16)");
     }
 
-    let points: Vec<_> = pcd
+    // Transform the data byte to a vec of points.
+    let points: Vec<msg::Point> = pcd
         .data
         .chunks(pcd.point_step as usize)
         .map(|point_bytes| {
@@ -453,6 +411,7 @@ pub fn pcd_to_points(pcd: &PointCloud2) -> Result<Vec<msg::Point>> {
     Ok(points)
 }
 
+/// Converts a ROS image to an OpenCV Mat.
 pub fn image_to_mat(image: &Image) -> Result<Mat> {
     use opencv::core::{Scalar, Vec3b, VecN, CV_8UC3};
 

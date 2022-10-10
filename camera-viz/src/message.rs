@@ -9,12 +9,16 @@ use r2r::{
     vision_msgs::msg::Detection2DArray,
 };
 
+// Reference counted type aliases used for convenience.
+
 pub type ArcPointVec = ARef<'static, Vec<Point>>;
 pub type ArcPoint = ARef<'static, Vec<Point>, Point>;
 pub type ArcRectVec = ARef<'static, Vec<Rect>>;
 pub type ArcRect = ARef<'static, Vec<Rect>, Rect>;
 pub type ArcAssocVec = ARef<'static, Vec<Association>>;
 
+/// An input message that can be a point cloud from LiDAR, an image
+/// from the Otobrite camera or an image from Kneron camera.
 #[derive(Debug)]
 pub enum InputMessage {
     PointCloud2(PointCloud2),
@@ -22,6 +26,7 @@ pub enum InputMessage {
     BBox(Detection2DArray),
 }
 
+/// A message produced by the pcd/image fusing algorithm.
 #[derive(Debug)]
 pub enum FuseMessage {
     Otobrite(OtobriteMessage),
@@ -47,24 +52,29 @@ impl From<OtobriteMessage> for FuseMessage {
     }
 }
 
+/// A message containing an Otobrite image and projected LiDAR points.
 #[derive(Debug)]
 pub struct OtobriteMessage {
     pub image: Option<Mat>,
     pub assocs: Option<ArcAssocVec>,
 }
 
+/// A message containing bboxes from the Kneron camera and projected
+/// LiDAR points.
 #[derive(Debug)]
 pub struct KneronMessage {
     pub rects: Option<ArcRectVec>,
     pub assocs: Option<ArcAssocVec>,
 }
 
+/// A message that is sent to Kiss3d GUI.
 #[derive(Debug)]
 pub struct Kiss3dMessage {
     pub points: ArcPointVec,
     pub kneron_assocs: Option<ArcAssocVec>,
 }
 
+/// A message that is sent to OpenCV GUI.
 #[derive(Debug)]
 pub enum OpencvMessage {
     Otobrite(OtobriteMessage),
@@ -83,12 +93,14 @@ impl From<OtobriteMessage> for OpencvMessage {
     }
 }
 
+/// A point with a 3D position and an intensity.
 #[derive(Debug)]
 pub struct Point {
     pub position: na::Point3<f32>,
     pub intensity: f32,
 }
 
+/// Contains a 3D point with an associated 2D point and an associated bbox.
 #[derive(Debug)]
 pub struct Association {
     pub pcd_point: ArcPoint,
