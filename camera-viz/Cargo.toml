@@ -22,7 +22,6 @@ serde = { version = "1.0.145", features = ["derive"] }
 serde-loader = { version = "0.1.4", features = ["json5"] }
 serde-semver = "0.2.1"
 serde_yaml = "0.9.13"
-num = "0.4.0"
 num-derive = "0.3.3"
 num-traits = "0.2.15"
 rayon = "1.5.3"

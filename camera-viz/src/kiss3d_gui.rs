@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{message as msg, utils::sample_rgb};
+use crate::{color_sampling::sample_rgb, message as msg};
 use async_std::task::spawn_blocking;
 use futures::prelude::*;
 use itertools::chain;
@@ -54,31 +54,39 @@ struct State {
 impl State {
     fn process_events(&mut self, window: &mut Window) {
         window.events().iter().for_each(|evt| {
-            use Action as A;
-            use Key as K;
-            use Modifiers as M;
             use WindowEvent as E;
 
             match evt.value {
                 E::Key(key, action, mods) => {
-                    let control = !(mods & M::Control).is_empty();
-                    let shift = !(mods & M::Shift).is_empty();
-                    let super_ = !(mods & M::Super).is_empty();
-
-                    match (key, action, control, shift, super_) {
-                        (K::C, A::Press, false, false, false) => {}
-                        _ => {}
-                    }
+                    self.process_key_event(key, action, mods);
                 }
                 _ => {}
             }
         });
     }
 
-    fn process_key_event() {}
+    fn process_key_event(&mut self, key: Key, action: Action, mods: Modifiers) {
+        use Action as A;
+        use Key as K;
+        use Modifiers as M;
+
+        let control = !(mods & M::Control).is_empty();
+        let shift = !(mods & M::Shift).is_empty();
+        let super_ = !(mods & M::Super).is_empty();
+
+        match (key, action, control, shift, super_) {
+            (K::Tab, A::Press, false, false, false) => {
+                self.point_color_mode = self.point_color_mode.next();
+            }
+            _ => {}
+        }
+    }
 
     fn update_msg(&mut self, msg: msg::Kiss3dMessage) {
-        let msg::Kiss3dMessage { points, assocs } = msg;
+        let msg::Kiss3dMessage {
+            points,
+            kneron_assocs,
+        } = msg;
 
         // Collect background points
         let background_points = points.flatten().map(|point: msg::ArcPoint| {
@@ -87,7 +95,7 @@ impl State {
         });
 
         // Collect points that are inside at least one bbox
-        let object_points = assocs
+        let object_points = kneron_assocs
             .as_ref()
             .map(|assocs: &msg::ArcAssocVec| {
                 assocs.iter().filter_map(|assoc: &msg::Association| {
@@ -149,6 +157,9 @@ impl State {
 
 impl kiss3d::window::State for State {
     fn step(&mut self, window: &mut Window) {
+        // Process events
+        self.process_events(window);
+
         // Try to receive a message
         match self.rx.try_recv() {
             Ok(msg) => {

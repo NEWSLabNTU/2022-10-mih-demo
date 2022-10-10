@@ -20,24 +20,24 @@ where
     )
 }
 
-/// Samples a RGB array with fixed saturation and lighness from the
-/// hash of input value.
-pub fn sample_rgb_with_sl<T>(seed: &T, saturation: f64, value: f64) -> [f64; 3]
-where
-    T: Hash,
-{
-    sample_rgb_with_sl_and_hasher(seed, saturation, value, &RandomState::default())
-}
+// /// Samples a RGB array with fixed saturation and lighness from the
+// /// hash of input value.
+// pub fn sample_rgb_with_sl<T>(seed: &T, saturation: f64, value: f64) -> [f64; 3]
+// where
+//     T: Hash,
+// {
+//     sample_rgb_with_sl_and_hasher(seed, saturation, value, &RandomState::default())
+// }
 
-/// Samples a RGB array with a custom hasher from the hash of input
-/// value.
-pub fn sample_rgb_with_hasher<T, S>(value: &T, build_hasher: &S) -> [f64; 3]
-where
-    T: Hash,
-    S: BuildHasher,
-{
-    sample_rgb_with_sl_and_hasher(value, DEFAULT_SATURATION, DEFAULT_VALUE, build_hasher)
-}
+// /// Samples a RGB array with a custom hasher from the hash of input
+// /// value.
+// pub fn sample_rgb_with_hasher<T, S>(value: &T, build_hasher: &S) -> [f64; 3]
+// where
+//     T: Hash,
+//     S: BuildHasher,
+// {
+//     sample_rgb_with_sl_and_hasher(value, DEFAULT_SATURATION, DEFAULT_VALUE, build_hasher)
+// }
 
 /// Samples a RGB array with fixed saturation and value and a
 /// custom hasher from the hash of input value.

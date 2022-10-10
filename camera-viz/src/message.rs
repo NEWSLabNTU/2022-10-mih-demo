@@ -18,45 +18,69 @@ pub type ArcAssocVec = ARef<'static, Vec<Association>>;
 #[derive(Debug)]
 pub enum InputMessage {
     PointCloud2(PointCloud2),
-    Image(Image),
+    OtobriteImage(Image),
     BBox(Detection2DArray),
 }
 
-impl From<Detection2DArray> for InputMessage {
-    fn from(v: Detection2DArray) -> Self {
-        Self::BBox(v)
+#[derive(Debug)]
+pub enum FuseMessage {
+    Otobrite(OtobriteMessage),
+    Kneron(KneronMessage),
+    Kiss3d(Kiss3dMessage),
+}
+
+impl From<Kiss3dMessage> for FuseMessage {
+    fn from(v: Kiss3dMessage) -> Self {
+        Self::Kiss3d(v)
     }
 }
 
-impl From<Image> for InputMessage {
-    fn from(v: Image) -> Self {
-        Self::Image(v)
+impl From<KneronMessage> for FuseMessage {
+    fn from(v: KneronMessage) -> Self {
+        Self::Kneron(v)
     }
 }
 
-impl From<PointCloud2> for InputMessage {
-    fn from(v: PointCloud2) -> Self {
-        Self::PointCloud2(v)
+impl From<OtobriteMessage> for FuseMessage {
+    fn from(v: OtobriteMessage) -> Self {
+        Self::Otobrite(v)
     }
 }
 
 #[derive(Debug)]
-pub struct FuseMessage {
-    pub opencv_msg: Option<OpencvGuiMessage>,
-    pub kiss3d_msg: Option<Kiss3dMessage>,
+pub struct OtobriteMessage {
+    pub image: Option<Mat>,
+    pub assocs: Option<ArcAssocVec>,
 }
 
 #[derive(Debug)]
-pub struct OpencvGuiMessage {
-    pub image: Mat,
-    pub rects: ArcRectVec,
+pub struct KneronMessage {
+    pub rects: Option<ArcRectVec>,
     pub assocs: Option<ArcAssocVec>,
 }
 
 #[derive(Debug)]
 pub struct Kiss3dMessage {
     pub points: ArcPointVec,
-    pub assocs: Option<ArcAssocVec>,
+    pub kneron_assocs: Option<ArcAssocVec>,
+}
+
+#[derive(Debug)]
+pub enum OpencvMessage {
+    Otobrite(OtobriteMessage),
+    Kneron(KneronMessage),
+}
+
+impl From<KneronMessage> for OpencvMessage {
+    fn from(v: KneronMessage) -> Self {
+        Self::Kneron(v)
+    }
+}
+
+impl From<OtobriteMessage> for OpencvMessage {
+    fn from(v: OtobriteMessage) -> Self {
+        Self::Otobrite(v)
+    }
 }
 
 #[derive(Debug)]

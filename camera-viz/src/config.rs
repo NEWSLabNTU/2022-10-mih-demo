@@ -8,7 +8,7 @@ use serde::{de::Error as _, Deserialize, Deserializer};
 use serde_loader::Json5Path;
 use serde_semver::SemverReq;
 use slice_of_array::prelude::*;
-use std::mem;
+use std::{mem, num::NonZeroUsize};
 
 #[derive(Debug, Clone, SemverReq)]
 #[version("0.1.0")]
@@ -26,16 +26,25 @@ pub struct Config {
     pub pcd_topic: String,
 
     /// Input topic for image.
-    pub img_topic: String,
+    pub otobrite_img_topic: String,
 
     /// Input topic for 2D detected objects.
-    pub det_topic: String,
+    pub kneron_det_topic: String,
 
     /// The intrinsic parameters file.
-    pub intrinsics_file: YamlPath<MrptCalibration>,
+    pub kneron_intrinsics_file: YamlPath<MrptCalibration>,
 
     /// The extrinsic parameters file.
-    pub extrinsics_file: Json5Path<ExtrinsicsData>,
+    pub kneron_extrinsics_file: Json5Path<ExtrinsicsData>,
+
+    /// The intrinsic parameters file.
+    pub otobrite_intrinsics_file: YamlPath<MrptCalibration>,
+
+    /// The extrinsic parameters file.
+    pub otobrite_extrinsics_file: Json5Path<ExtrinsicsData>,
+
+    pub otobrite_image_hw: [NonZeroUsize; 2],
+    pub kneron_image_hw: [NonZeroUsize; 2],
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -65,19 +74,19 @@ impl Matrix {
         mat
     }
 
-    pub fn to_na(&self) -> na::DMatrix<f64> {
-        na::DMatrix::from_row_slice(self.rows, self.cols, self.data_f64())
-    }
+    // pub fn to_na(&self) -> na::DMatrix<f64> {
+    //     na::DMatrix::from_row_slice(self.rows, self.cols, self.data_f64())
+    // }
 
-    /// Get the matrix's rows.
-    pub fn rows(&self) -> usize {
-        self.rows
-    }
+    // /// Get the matrix's rows.
+    // pub fn rows(&self) -> usize {
+    //     self.rows
+    // }
 
-    /// Get the matrix's cols.
-    pub fn cols(&self) -> usize {
-        self.cols
-    }
+    // /// Get the matrix's cols.
+    // pub fn cols(&self) -> usize {
+    //     self.cols
+    // }
 
     /// Get a reference to the matrix's data.
     pub fn data(&self) -> &[R64] {

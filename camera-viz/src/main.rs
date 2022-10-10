@@ -1,26 +1,25 @@
+mod color_sampling;
 mod config;
 mod fuse;
 mod kiss3d_gui;
 mod message;
 mod opencv_gui;
-mod rate_meter;
-mod yaml_loader;
 mod rect_rtree;
-mod utils;
+mod yaml_loader;
+// mod rate_meter;
 
-use crate::{config::Config, message as msg, rate_meter::RateMeter};
+use crate::{config::Config, message as msg};
 use anyhow::Result;
 use async_std::task::spawn_blocking;
 use clap::Parser;
 use futures::{future, prelude::*};
 use r2r::{
-    log_info,
     sensor_msgs::msg::{Image, PointCloud2},
     vision_msgs::msg::Detection2DArray,
     Context, Node, QosProfile,
 };
 use serde_loader::Json5Path;
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 #[derive(Parser)]
 struct Opts {
@@ -34,74 +33,28 @@ async fn main() -> Result<()> {
     let Config {
         namespace,
         pcd_topic,
-        img_topic,
-        det_topic,
+        otobrite_img_topic,
+        kneron_det_topic,
         ..
     } = &config;
 
     let ctx = Context::create()?;
     let mut node = Node::create(ctx, "demo_viz", namespace)?;
 
-    // Init rate meters
-    let pcd_meter = Arc::new(RateMeter::new_secs());
-    let det_meter = Arc::new(RateMeter::new_secs());
-    let img_meter = Arc::new(RateMeter::new_secs());
-
-    let rate_printing_future = {
-        let pcd_meter = pcd_meter.clone();
-        let det_meter = det_meter.clone();
-        let img_meter = img_meter.clone();
-
-        async move {
-            let pcd_rate_print = pcd_meter.rate_stream().for_each(|rate| {
-                let topic = &pcd_topic;
-                async move {
-                    log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
-                }
-            });
-            let det_rate_print = det_meter.rate_stream().for_each(|rate| {
-                let topic = &det_topic;
-                async move {
-                    log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
-                }
-            });
-            let img_rate_print = img_meter.rate_stream().for_each(|rate| {
-                let topic = &img_topic;
-                async move {
-                    log_info!(env!("CARGO_PKG_NAME"), "{} rate {} msgs/s", topic, rate);
-                }
-            });
-
-            futures::join!(pcd_rate_print, det_rate_print, img_rate_print);
-        }
-    };
-
     // Initialize subscriptions
     let pcd_sub = node.subscribe::<PointCloud2>(pcd_topic, QosProfile::default())?;
-    let det_sub = node.subscribe::<Detection2DArray>(det_topic, QosProfile::default())?;
-    let img_sub = node.subscribe::<Image>(img_topic, QosProfile::default())?;
+    let otobrite_img_sub = node.subscribe::<Image>(otobrite_img_topic, QosProfile::default())?;
+    let kneron_det_sub =
+        node.subscribe::<Detection2DArray>(kneron_det_topic, QosProfile::default())?;
 
     // Merge subscription streams into one
     let input_stream = {
-        let pcd_stream = pcd_sub
-            .inspect(|_| {
-                pcd_meter.bump();
-            })
-            .map(msg::InputMessage::from)
+        let pcd_stream = pcd_sub.map(msg::InputMessage::PointCloud2).boxed();
+        let kneron_det_stream = kneron_det_sub.map(msg::InputMessage::BBox).boxed();
+        let otobrite_img_stream = otobrite_img_sub
+            .map(msg::InputMessage::OtobriteImage)
             .boxed();
-        let det_stream = det_sub
-            .inspect(|_| {
-                det_meter.bump();
-            })
-            .map(msg::InputMessage::from)
-            .boxed();
-        let img_stream = img_sub
-            .inspect(|_| {
-                img_meter.bump();
-            })
-            .map(msg::InputMessage::from)
-            .boxed();
-        futures::stream::select_all([pcd_stream, det_stream, img_stream])
+        futures::stream::select_all([pcd_stream, kneron_det_stream, otobrite_img_stream])
     };
 
     // Start image/pcd fusing worker
@@ -111,7 +64,7 @@ async fn main() -> Result<()> {
     let (split_future, opencv_rx, kiss3d_rx) = split(fuse_stream.boxed());
 
     // Start OpenCV GUI
-    let opencv_future = opencv_gui::start(opencv_rx.into_stream());
+    let opencv_future = opencv_gui::start(&config, opencv_rx.into_stream());
 
     // Start Kiss3d GUI
     let kiss3d_future = kiss3d_gui::start(kiss3d_rx.into_stream());
@@ -122,12 +75,7 @@ async fn main() -> Result<()> {
     });
 
     // Join all futures
-    let join1 = future::join4(
-        split_future,
-        kiss3d_future,
-        spin_future,
-        rate_printing_future,
-    );
+    let join1 = future::join3(split_future, kiss3d_future, spin_future);
     let join2 = future::try_join(join1.map(|_| anyhow::Ok(())), opencv_future);
     join2.await?;
 
@@ -138,7 +86,7 @@ fn split(
     mut stream: impl Stream<Item = msg::FuseMessage> + Unpin + Send,
 ) -> (
     impl Future<Output = ()> + Send,
-    flume::Receiver<msg::OpencvGuiMessage>,
+    flume::Receiver<msg::OpencvMessage>,
     flume::Receiver<msg::Kiss3dMessage>,
 ) {
     let (opencv_tx, opencv_rx) = flume::bounded(2);
@@ -146,29 +94,15 @@ fn split(
 
     let future = async move {
         while let Some(in_msg) = stream.next().await {
-            let msg::FuseMessage {
-                kiss3d_msg,
-                opencv_msg,
-            } = in_msg;
+            use msg::FuseMessage as M;
 
-            let opencv_send = async {
-                if let Some(msg) = opencv_msg {
-                    opencv_tx.send_async(msg).await.is_ok()
-                } else {
-                    true
-                }
-            };
-            let kiss3d_send = async {
-                if let Some(msg) = kiss3d_msg {
-                    kiss3d_tx.send_async(msg).await.is_ok()
-                } else {
-                    true
-                }
+            let ok = match in_msg {
+                M::Otobrite(msg) => opencv_tx.send_async(msg.into()).await.is_ok(),
+                M::Kneron(msg) => opencv_tx.send_async(msg.into()).await.is_ok(),
+                M::Kiss3d(msg) => kiss3d_tx.send_async(msg).await.is_ok(),
             };
 
-            let (opencv_ok, kiss3d_ok) = futures::join!(opencv_send, kiss3d_send);
-
-            if !(opencv_ok && kiss3d_ok) {
+            if !ok {
                 break;
             }
         }
