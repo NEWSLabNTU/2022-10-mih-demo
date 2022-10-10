@@ -1,15 +1,17 @@
 {
     "version": "0.1.0",
     "namespace": "/",
-    "pcd_topic": "pcd",
-    "img_topic": "img",
-    "det_topic": "det",
+    "pcd_topic": "/velodyne_points",
+    "otobrite_img_topic": "/image_raw",
+    "kneron_det_topic": "/kneron_detecion",
 
     // Kneron camera
-    "intrinsics_file": "../../data/kneron.intrinsics.yaml",
-    "extrinsics_file": "../../data/kneron.extrinsics.yaml",
+    "kneron_image_hw": [1080, 1920],
+    "kneron_intrinsics_file": "../../data/kneron.intrinsics.yaml",
+    "kneron_extrinsics_file": "../../data/kneron.extrinsics.json5",
 
     // Otobrite camera
-    // "intrinsics_file": "../../data/kneron.intrinsics.yaml",
-    // "extrinsics_file": "../../data/kneron.extrinsics.yaml",
+    "otobrite_image_hw": [1080, 1920],
+    "otobrite_intrinsics_file": "../../data/otobrite.intrinsics.yaml",
+    "otobrite_extrinsics_file": "../../data/otobrite.extrinsics.json5",
 }
