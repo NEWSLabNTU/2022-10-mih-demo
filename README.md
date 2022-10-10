@@ -23,7 +23,7 @@ Follow the steps below if you prefer to build the project manually.
 
 ```bash
 ## Pull dependent ROS repos
-mkdir src
+mkdir repos
 vcs import repos < dependencies.repos
 vcs pull repos < dependencies.repos
 
@@ -39,6 +39,15 @@ cargo build --all-targets --release
 
 ## Usage
 
+### Run the visualizer for Otobrite and Kneron cameras
+
+Modify input topic names in the `camera-viz/config/example.json5`
+configuration file. Then,
+
+```bash
+./target/release/camera-viz --config camera-viz/config/example.json5
+```
+
 ### 2D Detection Server for Kneron Camera
 
 To retrieve detected bounding boxes from a Kneron camera, connect the
@@ -49,16 +58,11 @@ Kneron board via Ethernet cable. Set the network static address to
 ./target/release/kneron-bbox-server-node
 ```
 
-### Visualizer
+### Run the visualizer for Autoware `lidar_centerpoint`
 
-To start the visualizer to show live video and bounding boxes,
-
-```bash
-./target/release/viz
-```
-
-To change the input topic names,
+Modify input topic names in the `aw-viz/config/example.json5`
+configuration file. Then,
 
 ```bash
-./target/release/viz --img-topic IMG_TOPIC --det-topic DET_TOPIC --pcd-topic PCD_TOPIC
+./target/release/aw-viz --config aw-viz/config/example.json5
 ```
