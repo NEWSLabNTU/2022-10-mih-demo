@@ -17,9 +17,17 @@ install the toolchain using the command on
 
 ## Build
 
-Run `make` to build the project.
+### Using Makefile
 
-Follow the steps below if you prefer to build the project manually.
+```bash
+## Source ROS setup script
+source /opt/ros/galactic/setup.sh
+
+make build_ros_dependencies
+make build
+```
+
+### Manually
 
 ```bash
 ## Pull dependent ROS repos
@@ -30,8 +38,11 @@ vcs pull repos < dependencies.repos
 ## Source ROS setup script
 source /opt/ros/galactic/setup.sh
 
-## Build dependent ROS packages
-cd repos && colcon build && source install/setup.sh
+## Build ROS dependencies
+cd repos && colcon build
+
+## Source setup.sh for dependent ROS pacakges
+source repos/install/setup.sh
 
 ## Build the project
 cargo build --all-targets --release
