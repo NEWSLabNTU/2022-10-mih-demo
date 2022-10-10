@@ -1,4 +1,4 @@
-.PHONY: build clean build_ros_dependencies
+.PHONY: build clean build_ros_dependencies doc
 
 build:
 	@echo 'Building this project' >&2
@@ -14,6 +14,9 @@ build_ros_dependencies:
 	@echo 'Building ROS dependencies' >&2
 	@cd repos && \
 	colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+doc:
+	cd doc && dot -Tpng ARCHITECTURE.dot > ARCHITECTURE.png
 
 clean:
 	cargo clean

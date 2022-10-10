@@ -115,3 +115,7 @@ configuration file. Then,
 Before running the visualizer, you may run (A) first to enable live
  point cloud data feed and run (D) to start live `lidar_centerpoint`
  processing.
+
+## Architecture
+
+![](doc/ARCHITECTURE.png)

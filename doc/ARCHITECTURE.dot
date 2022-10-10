@@ -1,0 +1,40 @@
+digraph architecture {
+        fontname="Helvetica,Arial,sans-serif"
+        node [fontname="Helvetica,Arial,sans-serif"]
+        edge [fontname="Helvetica,Arial,sans-serif"]
+
+        node [shape=cylinder]; velodyne_lidar; otobrite_camera; kneron_camera;
+	node [shape=ellipse]; velodyne_driver_node; velodyne_convert_node; camera_viz; aw_viz; lidar_centerpoint; kneron_bbox_server_node; v4l2_camera_node;
+	node [shape=note]; velodyne_packets; velodyne_points; kneron_detection; image_raw; objects;
+
+        // Velodyne 32C lidar device
+        velodyne_lidar -> velodyne_driver_node
+
+        // Otobrite camera device
+        otobrite_camera -> v4l2_camera_node
+        
+        // Kneron camera device
+        kneron_camera -> kneron_bbox_server_node
+        
+        // topic velodyne_packets
+        velodyne_driver_node -> velodyne_packets
+        velodyne_packets -> velodyne_convert_node
+        
+        // topic velodyne_points
+        velodyne_convert_node -> velodyne_points
+        velodyne_points -> camera_viz
+        velodyne_points -> aw_viz
+        velodyne_points -> lidar_centerpoint
+
+        // topic kneron_detecion
+        kneron_bbox_server_node -> kneron_detection
+        kneron_detection -> camera_viz
+
+        // topic image_raw
+        v4l2_camera_node -> image_raw
+        image_raw -> camera_viz
+
+        // topic objects
+        lidar_centerpoint -> objects
+        objects -> aw_viz
+}
