@@ -22,7 +22,7 @@ repositories:
   velodyne:
     type: git
     url: https://github.com/ros-drivers/velodyne.git
-    version: galactic-devel
+    version: ros2
   vision_msgs:
     type: git
     url: https://github.com/ros-perception/vision_msgs.git
