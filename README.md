@@ -50,7 +50,7 @@ cargo build --all-targets --release
 
 ## Usage
 
-### (A) Publish Velodyne LiDAR Point Clouds
+### (A) Publish Velodyne LiDAR point clouds
 
 Edit the configuration file. Specify the LiDAR device IP address in
 the `device_ip` field.
@@ -70,7 +70,7 @@ ros2 launch velodyne_pointcloud velodyne_convert_node-VLP32C-launch.py
 ```
 
 
-### (B) Run 2D Detection Server for Kneron Camera
+### (B) Run 2D detection server for Kneron camera
 
 To retrieve detected bounding boxes from a Kneron camera, connect the
 Kneron board via Ethernet cable. Set the network static address to
@@ -81,7 +81,7 @@ Kneron board via Ethernet cable. Set the network static address to
 ```
 
 
-### (C) Run the Visualizer for Otobrite and Kneron cameras
+### (C) Run the visualizer for Otobrite and Kneron cameras
 
 Modify input topic names in the `camera-viz/config/example.json5`
 configuration file. Then,
@@ -93,7 +93,17 @@ configuration file. Then,
 Before running the visualizer, you may run (A) and (B) first to enable
 live bbox and point cloud data feed.
 
-### (D) Run the visualizer for Autoware `lidar_centerpoint`
+### (D) Run `lidar_centerpoint`
+
+TODO: The command is outdated.
+
+```bash
+ros2 launch lidar_centerpoint lidar_centerpoint.launch.xml \
+    model_name:=aip_x2 \
+    input/pointcloud:=/velodyne_points
+```
+
+### (E) Run the visualizer for Autoware `lidar_centerpoint`
 
 Modify input topic names in the `aw-viz/config/example.json5`
 configuration file. Then,
@@ -103,4 +113,5 @@ configuration file. Then,
 ```
 
 Before running the visualizer, you may run (A) first to enable live
- point cloud data feed.
+ point cloud data feed and run (D) to start live `lidar_centerpoint`
+ processing.
