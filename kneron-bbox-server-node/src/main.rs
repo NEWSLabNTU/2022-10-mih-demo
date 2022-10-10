@@ -2,6 +2,7 @@
 //! messages from a Kneron camera.
 
 use anyhow::Result;
+use clap::Parser;
 use kneron_bbox_server::{BoundingBox, Server};
 use r2r::{
     builtin_interfaces::msg::Time,
@@ -14,16 +15,27 @@ use r2r::{
 };
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[derive(Debug, Parser)]
+struct Opts {
+    #[clap(long, default_value = "kneron_detecion")]
+    pub topic: String,
+    #[clap(long, default_value = "/")]
+    pub namespace: String,
+}
+
 fn main() -> Result<()> {
+    let opts = Opts::parse();
+
     // Start the server listening to a Kneron camera.
     let server = Server::new()?;
 
     // Start a ROS node
     let ctx = Context::create()?;
-    let mut node = Node::create(ctx, "kneron_bbox_publisher", "namespace")?;
+    let mut node = Node::create(ctx, "kneron_bbox_publisher", &opts.namespace)?;
 
     // Create a ROS publisher.
-    let publisher = node.create_publisher::<Detection2DArray>("TOPIC", QosProfile::default())?;
+    let publisher =
+        node.create_publisher::<Detection2DArray>(&opts.topic, QosProfile::default())?;
 
     server
         .enumerate()
