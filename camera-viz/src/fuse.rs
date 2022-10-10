@@ -347,7 +347,7 @@ struct BBoxIndex {
 
 /// Converts a ROS point cloud to a vec of points.
 pub fn pcd_to_points(pcd: &PointCloud2) -> Result<Vec<msg::Point>> {
-    // Assert the point cloud has 4 fields. Otherwise return error.
+    // Assert the point cloud has at least 4 fields. Otherwise return error.
     let [fx, fy, fz, fi] = match pcd.fields.get(0..4) {
         Some([f1, f2, f3, f4]) => [f1, f2, f3, f4],
         Some(_) => unreachable!(),
@@ -381,7 +381,7 @@ pub fn pcd_to_points(pcd: &PointCloud2) -> Result<Vec<msg::Point>> {
     check_field(fi)?;
 
     // Assert a point is 16 bytes (4 x f32 values). Otherwise, return error.
-    if pcd.point_step != 16 {
+    if pcd.point_step < 16 {
         bail!("Ignore a point cloud message with incorrect point_step (expect 16)");
     }
 

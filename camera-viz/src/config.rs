@@ -60,7 +60,7 @@ pub struct MrptCalibration {
     pub distortion_model: DistortionModel,
     pub distortion_coefficients: Matrix,
     pub camera_matrix: Matrix,
-    pub projection_model: Matrix,
+    pub projection_matrix: Matrix,
     pub rectification_matrix: Matrix,
 }
 
@@ -131,7 +131,7 @@ pub struct UncheckedMatrix {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DistortionModel {
-    PlumpBob,
+    PlumbBob,
 }
 
 #[derive(Debug, Clone, Deserialize)]

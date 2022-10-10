@@ -16,6 +16,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 
 #[derive(Parser)]
 struct Opts {
+    #[clap(long)]
     pub config: PathBuf,
 }
 

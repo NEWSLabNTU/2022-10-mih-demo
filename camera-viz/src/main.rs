@@ -26,6 +26,7 @@ use std::{path::PathBuf, time::Duration};
 /// The type defines the program arguments.
 #[derive(Parser)]
 struct Opts {
+    #[clap(long)]
     pub config: PathBuf,
 }
 
