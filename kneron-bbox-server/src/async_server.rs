@@ -7,16 +7,20 @@ use std::mem;
 
 pub const DEFAULT_ADDR: &str = "0.0.0.0:8700";
 
+/// The async/.await server that listens to detection messages from
+/// the Kneron camera.
 #[derive(Debug)]
 pub struct AsyncServer {
     listener: TcpListener,
 }
 
 impl AsyncServer {
+    /// Starts the server that binds to the default address.
     pub async fn new() -> Result<Self> {
         Self::bind(DEFAULT_ADDR).await
     }
 
+    /// Starts the server that binds to specified address.
     pub async fn bind<A>(addrs: A) -> Result<Self>
     where
         A: ToSocketAddrs,

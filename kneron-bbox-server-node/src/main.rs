@@ -1,3 +1,6 @@
+//! Provides a ROS node that starts a server listening to detection
+//! messages from a Kneron camera.
+
 use anyhow::Result;
 use kneron_bbox_server::{BoundingBox, Server};
 use r2r::{
@@ -12,9 +15,14 @@ use r2r::{
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() -> Result<()> {
+    // Start the server listening to a Kneron camera.
+    let server = Server::new()?;
+
+    // Start a ROS node
     let ctx = Context::create()?;
     let mut node = Node::create(ctx, "kneron_bbox_publisher", "namespace")?;
-    let server = Server::new()?;
+
+    // Create a ROS publisher.
     let publisher = node.create_publisher::<Detection2DArray>("TOPIC", QosProfile::default())?;
 
     server

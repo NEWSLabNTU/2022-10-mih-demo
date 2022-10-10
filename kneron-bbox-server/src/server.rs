@@ -9,16 +9,19 @@ use std::{
 
 pub const DEFAULT_ADDR: &str = "0.0.0.0:8700";
 
+/// The server that listens to detection messages from the Kneron camera.
 #[derive(Debug)]
 pub struct Server {
     listener: TcpListener,
 }
 
 impl Server {
+    /// Starts the server that binds to the default address.
     pub fn new() -> Result<Self> {
         Self::bind(DEFAULT_ADDR)
     }
 
+    /// Starts the server that binds to specified address.
     pub fn bind<A>(addrs: A) -> Result<Self>
     where
         A: ToSocketAddrs,
