@@ -1,6 +1,6 @@
 {
     "version": "0.1.0",
     "namespace": "/",
-    "pcd_topic": "pcd",
-    "det_topic": "det",
+    "pcd_topic": "velodyne_points",
+    "det_topic": "objects",
 }

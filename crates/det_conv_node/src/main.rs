@@ -20,7 +20,7 @@ use std::time::Duration;
 
 #[derive(Parser)]
 struct Opts {
-    #[clap(long)]
+    #[clap(long, default_value = "objects")]
     pub input_topic: String,
     #[clap(long)]
     pub output_topic: Option<String>,
