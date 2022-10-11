@@ -1,5 +1,5 @@
 [package]
-name = "camera-viz"
+name = "camera_viz"
 version = "0.1.0"
 edition = "2021"
 

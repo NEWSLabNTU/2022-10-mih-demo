@@ -1,10 +1,10 @@
 [workspace]
 members = [
     "kneron-bbox-server",
-    "kneron-bbox-server-node",
-    "camera-viz",
-    "aw-viz",
-    "det-conv-node",
+    "kneron_bbox_server_node",
+    "camera_viz",
+    "aw_viz",
+    "det_conv_node",
 ]
 
 [patch.crates-io]

@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
 
     // Create a ROS node.
     let ctx = Context::create()?;
-    let mut node = Node::create(ctx, "camera_viz", namespace)?;
+    let mut node = Node::create(ctx, env!("CARGO_PKG_NAME"), namespace)?;
 
     // Create ROS subscriptions
     log_info!(

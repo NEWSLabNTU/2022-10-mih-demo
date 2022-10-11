@@ -4,7 +4,7 @@ digraph architecture {
         edge [fontname="Helvetica,Arial,sans-serif"]
 
         node [shape=cylinder]; velodyne_lidar; otobrite_camera; kneron_camera;
-	node [shape=ellipse]; velodyne_driver_node; velodyne_convert_node; camera_viz; aw_viz; lidar_centerpoint; kneron_bbox_server_node; v4l2_camera_node;
+	node [shape=ellipse]; velodyne_driver_node; velodyne_convert_node; camera_viz; aw_viz; lidar_centerpoint; kneron_bbox_server_node; v4l2_camera_node; det_conv_node;
 	node [shape=note]; velodyne_packets; velodyne_points; kneron_detection; image_raw; objects;
 
         // Velodyne 32C lidar device
@@ -37,4 +37,5 @@ digraph architecture {
         // topic objects
         lidar_centerpoint -> objects
         objects -> aw_viz
+        objects -> det_conv_node
 }

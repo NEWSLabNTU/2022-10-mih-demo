@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     let opts = Opts::parse();
 
     let ctx = Context::create()?;
-    let mut node = Node::create(ctx, "det_conv_node", &opts.namespace)?;
+    let mut node = Node::create(ctx, env!("CARGO_PKG_NAME"), &opts.namespace)?;
 
     let subscriber =
         node.subscribe::<Detection2DArray>(&opts.input_topic, QosProfile::default())?;

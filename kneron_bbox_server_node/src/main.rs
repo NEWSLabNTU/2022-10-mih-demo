@@ -31,7 +31,7 @@ fn main() -> Result<()> {
 
     // Start a ROS node
     let ctx = Context::create()?;
-    let mut node = Node::create(ctx, "kneron_bbox_publisher", &opts.namespace)?;
+    let mut node = Node::create(ctx, env!("CARGO_PKG_NAME"), &opts.namespace)?;
 
     // Create a ROS publisher.
     let publisher =

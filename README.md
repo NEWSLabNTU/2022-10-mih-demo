@@ -77,17 +77,17 @@ Kneron board via Ethernet cable. Set the network static address to
 172.23.230.N/24 (pick a N here). Start the ROS node by:
 
 ```bash
-./target/release/kneron-bbox-server-node
+./target/release/kneron_bbox_server_node
 ```
 
 
 ### (C) Run the visualizer for Otobrite and Kneron cameras
 
-Modify input topic names in the `camera-viz/config/example.json5`
+Modify input topic names in the `camera_viz/config/example.json5`
 configuration file. Then,
 
 ```bash
-./target/release/camera-viz --config camera-viz/config/example.json5
+./target/release/camera_viz --config camera_viz/config/example.json5
 ```
 
 Before running the visualizer, you may run (A) and (B) first to enable
@@ -105,16 +105,22 @@ ros2 launch lidar_centerpoint lidar_centerpoint.launch.xml \
 
 ### (E) Run the visualizer for Autoware `lidar_centerpoint`
 
-Modify input topic names in the `aw-viz/config/example.json5`
+Modify input topic names in the `aw_viz/config/example.json5`
 configuration file. Then,
 
 ```bash
-./target/release/aw-viz --config aw-viz/config/example.json5
+./target/release/aw_viz --config aw_viz/config/example.json5
 ```
 
 Before running the visualizer, you may run (A) first to enable live
  point cloud data feed and run (D) to start live `lidar_centerpoint`
  processing.
+
+### (F) Run `det_conv_node`
+
+```bash
+./target/release/det_conv_node
+```
 
 ## Architecture
 

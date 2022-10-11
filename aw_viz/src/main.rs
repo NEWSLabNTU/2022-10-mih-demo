@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     } = config;
 
     let ctx = Context::create()?;
-    let mut node = Node::create(ctx, "aw_viz", &namespace)?;
+    let mut node = Node::create(ctx, env!("CARGO_PKG_NAME"), &namespace)?;
 
     let pcd_sub = node.subscribe::<PointCloud2>(&pcd_topic, QosProfile::default())?;
     let det_sub = node.subscribe::<DetectedObjects>(&det_topic, QosProfile::default())?;
