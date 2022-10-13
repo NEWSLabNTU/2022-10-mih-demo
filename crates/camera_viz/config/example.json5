@@ -7,12 +7,14 @@
 
     // Kneron camera
     "kneron_image_hw": [1080, 1920],
+    "kneron_present_size": 960,
     "kneron_intrinsics_file": "../../../data/kneron.intrinsics.yaml",
     "kneron_extrinsics_file": "../../../data/kneron.extrinsics.json5",
 
     // Otobrite camera
     "otobrite_image_hw": [1080, 1920],
     "otobrite_rotate_180": true,
+    "otobrite_present_size": 960,
     "otobrite_intrinsics_file": "../../../data/otobrite.intrinsics.yaml",
     "otobrite_extrinsics_file": "../../../data/otobrite.extrinsics.json5",
 }

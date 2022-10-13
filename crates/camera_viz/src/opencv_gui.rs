@@ -5,17 +5,19 @@ use futures::prelude::*;
 use nalgebra as na;
 use opencv::{
     calib3d,
-    core::{no_array, Point2f, Point2i, Scalar, CV_32FC3},
-    highgui, imgproc,
+    core::{no_array, Point2f, Point2i, Scalar, Size, CV_32FC3},
+    highgui,
+    imgproc::{self, INTER_LINEAR},
     prelude::*,
 };
 use palette::{Hsv, IntoColor, RgbHue, Srgb};
 use std::{
+    cmp,
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
 
-const MAX_DISTANCE: f32 = 5.0;
+const MAX_DISTANCE: f32 = 10.0;
 const INTERVAL: Duration = Duration::from_millis(100);
 
 pub async fn start(
@@ -27,6 +29,8 @@ pub async fn start(
         kneron_image_hw,
         ref otobrite_intrinsics_file,
         ref otobrite_extrinsics_file,
+        otobrite_present_size,
+        kneron_present_size,
         ..
     } = *config;
     let otobrite_camera_matrix = otobrite_intrinsics_file.camera_matrix.to_opencv();
@@ -46,10 +50,12 @@ pub async fn start(
 
             State {
                 kneron_image: make_zero_mat(kneron_image_hw),
+                kneron_present_size,
                 otobrite_image: make_zero_mat(otobrite_image_hw),
                 otobrite_image_hw,
                 otobrite_camera_matrix,
                 otobrite_dist_coefs,
+                otobrite_present_size,
                 otobrite_pose,
                 kneron_image_hw,
             }
@@ -82,11 +88,13 @@ pub async fn start(
 
 struct State {
     kneron_image: Mat,
+    kneron_present_size: usize,
     otobrite_image: Mat,
     otobrite_image_hw: [usize; 2],
     otobrite_pose: na::Isometry3<f32>,
     otobrite_camera_matrix: Mat,
     otobrite_dist_coefs: Mat,
+    otobrite_present_size: usize,
     kneron_image_hw: [usize; 2],
 }
 
@@ -104,7 +112,7 @@ impl State {
 
         match msg {
             M::Otobrite(msg) => self.update_otobrite(msg)?,
-            M::Kneron(msg) => self.update_kneron(msg),
+            M::Kneron(msg) => self.update_kneron(msg)?,
         }
 
         Ok(())
@@ -113,29 +121,29 @@ impl State {
     fn update_otobrite(&mut self, msg: msg::OtobriteMessage) -> Result<()> {
         let msg::OtobriteMessage { image, assocs } = msg;
 
-        let mut canvas = match image {
-            Some(image) => {
-                let mut out = Mat::default();
-                calib3d::undistort(
-                    &image,
-                    &mut out,
-                    &self.otobrite_camera_matrix,
-                    &self.otobrite_dist_coefs,
-                    &no_array(),
-                )?;
-                out
-            }
-            None => make_zero_mat(self.otobrite_image_hw),
-        };
+        // let mut canvas = match image {
+        //     Some(image) => {
+        //         let mut out = Mat::default();
+        //         calib3d::undistort(
+        //             &image,
+        //             &mut out,
+        //             &self.otobrite_camera_matrix,
+        //             &self.otobrite_dist_coefs,
+        //             &no_array(),
+        //         )?;
+        //         out
+        //     }
+        //     None => make_zero_mat(self.otobrite_image_hw),
+        // };
 
-        // let mut canvas: Mat = image.unwrap_or_else(|| make_zero_mat(self.otobrite_image_hw));
+        let mut canvas: Mat = image.unwrap_or_else(|| make_zero_mat(self.otobrite_image_hw));
 
         // Draw points
         if let Some(assocs) = assocs {
             assocs
                 .iter()
                 .filter(|assoc| {
-                    let camera_point = &self.otobrite_pose * assoc.pcd_point.position;
+                    let camera_point = self.otobrite_pose * assoc.pcd_point.position;
                     camera_point.z > 0.0
                 })
                 .for_each(|assoc| {
@@ -175,12 +183,31 @@ impl State {
                 });
         }
 
+        // Scale image
+        let canvas = {
+            let target_size = self.otobrite_present_size as f64;
+            let fx = target_size / canvas.cols() as f64;
+            let fy = target_size / canvas.rows() as f64;
+            let scale = fx.min(fy);
+
+            let mut out = Mat::default();
+            imgproc::resize(
+                &canvas,
+                &mut out,
+                Size::default(),
+                scale,
+                scale,
+                INTER_LINEAR,
+            )?;
+            out
+        };
+
         self.otobrite_image = canvas;
 
         Ok(())
     }
 
-    fn update_kneron(&mut self, msg: msg::KneronMessage) {
+    fn update_kneron(&mut self, msg: msg::KneronMessage) -> Result<()> {
         let msg::KneronMessage { assocs, rects } = msg;
         let mut canvas: Mat = make_zero_mat(self.kneron_image_hw);
 
@@ -208,9 +235,9 @@ impl State {
             assocs.iter().for_each(|assoc| {
                 let color = {
                     let [r, g, b] = if let Some(rect) = &assoc.rect {
-                        sample_rgb(rect)
+                        [0.5, 1.0, 1.0]
                     } else {
-                        [0.1, 0.1, 0.1]
+                        [0.5, 0.5, 0.5]
                     };
                     Scalar::new(b, g, r, 0.0)
                 };
@@ -232,7 +259,28 @@ impl State {
             });
         }
 
+        // Scale image
+        let canvas = {
+            let target_size = self.kneron_present_size as f64;
+            let fx = target_size / canvas.cols() as f64;
+            let fy = target_size / canvas.rows() as f64;
+            let scale = fx.min(fy);
+
+            let mut out = Mat::default();
+            imgproc::resize(
+                &canvas,
+                &mut out,
+                Size::default(),
+                scale,
+                scale,
+                INTER_LINEAR,
+            )?;
+            out
+        };
+
         self.kneron_image = canvas;
+
+        Ok(())
     }
 }
 
