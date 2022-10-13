@@ -1,0 +1,8 @@
+{
+    "namespace": "/",
+    "topic": "otobrite_image",
+    "video_device": "/dev/video0",
+    "resolution": [1920, 1080],
+    "interval": [1, 30],
+    "format": "UYVY",
+}

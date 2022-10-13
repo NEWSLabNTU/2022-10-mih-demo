@@ -5,6 +5,7 @@ members = [
     "crates/camera_viz",
     "crates/aw_viz",
     "crates/det_conv_node",
+    "crates/v4l2_node",
 ]
 
 [patch.crates-io]
