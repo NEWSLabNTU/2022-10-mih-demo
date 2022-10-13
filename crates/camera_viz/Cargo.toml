@@ -16,7 +16,7 @@ json5 = "0.4.1"
 kiss3d = "0.35.0"
 nalgebra = { version = "0.30.1", features = ["serde-serialize"] }
 noisy_float = { version = "0.2.0", features = ["serde"] }
-opencv = { version = "0.68.0", default-features = false, features = ["highgui", "imgproc"] }
+opencv = { version = "0.68.0", default-features = false, features = ["highgui", "imgproc", "calib3d"] }
 r2r = "0.6.3"
 serde = { version = "1.0.145", features = ["derive"] }
 serde-loader = { version = "0.1.4", features = ["json5"] }
@@ -24,9 +24,10 @@ serde-semver = "0.2.1"
 serde_yaml = "0.9.13"
 num-derive = "0.3.3"
 num-traits = "0.2.15"
-rayon = "1.5.3"
+# rayon = "1.5.3"
 slice-of-array = "0.3.2"
 cv-convert = { version = "0.21.0", features = ["opencv_0-68", "nalgebra_0-30"] }
 rstar = "0.9.3"
 ownref = "0.3.1"
 palette = "0.6.1"
+yuv = "0.1.5"

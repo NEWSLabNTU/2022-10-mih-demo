@@ -103,7 +103,7 @@ impl State {
 
         // Collect background points
         let background_points = points.flatten().map(|point: msg::ArcPoint| {
-            let color = na::Point3::new(0.3, 0.3, 0.3);
+            let color = na::Point3::new(0.5, 0.5, 0.5);
             (point, color)
         });
 
