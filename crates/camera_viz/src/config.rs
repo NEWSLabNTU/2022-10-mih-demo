@@ -37,13 +37,13 @@ pub struct Config {
     pub kneron_intrinsics_file: YamlPath<MrptCalibration>,
 
     /// The extrinsic parameters file.
-    pub kneron_extrinsics_file: Json5Path<ExtrinsicsData>,
+    pub kneron_extrinsics_file: Json5Path<na::Isometry3<f64>>,
 
     /// The intrinsic parameters file.
     pub otobrite_intrinsics_file: YamlPath<MrptCalibration>,
 
     /// The extrinsic parameters file.
-    pub otobrite_extrinsics_file: Json5Path<ExtrinsicsData>,
+    pub otobrite_extrinsics_file: Json5Path<na::Isometry3<f64>>,
 
     pub otobrite_image_hw: [NonZeroUsize; 2],
     pub kneron_image_hw: [NonZeroUsize; 2],

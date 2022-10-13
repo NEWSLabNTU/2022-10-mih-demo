@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{color_sampling::sample_rgb, message as msg};
 use async_std::task::spawn_blocking;
 use futures::prelude::*;
@@ -15,6 +13,7 @@ use kiss3d::{
 };
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use std::collections::HashMap;
 
 /// Starts the Kiss3d GUI interface.
 pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send) {

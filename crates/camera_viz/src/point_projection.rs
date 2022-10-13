@@ -1,10 +1,8 @@
-use crate::{
-    config::{ExtrinsicsData, MrptCalibration},
-    message as msg,
-};
+use crate::{config::MrptCalibration, message as msg};
 use anyhow::Result;
-use cv_convert::{FromCv, OpenCvPose};
+use cv_convert::{prelude::*, FromCv, OpenCvPose};
 use itertools::izip;
+use nalgebra as na;
 use opencv::{
     calib3d,
     core::{no_array, Point2f, Point3f, Vector},
@@ -77,8 +75,8 @@ pub struct CameraParams {
 }
 
 impl CameraParams {
-    pub fn new(intrinsics: &MrptCalibration, extrinsics: &ExtrinsicsData) -> Result<Self> {
-        let OpenCvPose { rvec, tvec } = extrinsics.to_opencv()?;
+    pub fn new(intrinsics: &MrptCalibration, extrinsics: &na::Isometry3<f64>) -> Result<Self> {
+        let OpenCvPose { rvec, tvec } = extrinsics.try_into_cv()?;
         let camera_matrix = intrinsics.camera_matrix.to_opencv();
         let distortion_coefficients = intrinsics.distortion_coefficients.to_opencv();
         Ok(Self {
