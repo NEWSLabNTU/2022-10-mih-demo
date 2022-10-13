@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Parser)]
 struct Opts {
-    #[clap(long, default_value = "kneron_detecion")]
+    #[clap(long, default_value = "kneron_detection")]
     pub topic: String,
     #[clap(long, default_value = "/")]
     pub namespace: String,
