@@ -2,7 +2,7 @@
 
 build:
 	@echo 'Building this project' >&2
-	@source repos/install/setup.sh && \
+	@. repos/install/setup.sh && \
 	cargo build --release --all-targets
 
 build_ros_dependencies:
