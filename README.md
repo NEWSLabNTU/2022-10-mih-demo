@@ -83,11 +83,13 @@ Kneron board via Ethernet cable. Set the network static address to
 
 ### (C) Capture images from Otobrite camera
 
-Find the location of video device. For example, `/dev/video0`. Set the
-device device in the command line parameter.
+Set the video device path in the config file
+`crates/v4l2_node/config/example.json5`. For example, `/dev/video0`.
+
+Start the image capturing node.
 
 ```bash
-ros2 run v4l2_camera v4l2_camera_node video_device:=/dev/videoX
+cargo run --bin v4l2_node --release -- --config crates/v4l2_node/config/example.json5
 ```
 
 ### (D) Run the visualizer for Otobrite and Kneron cameras
@@ -110,19 +112,6 @@ ros2 launch lidar_centerpoint lidar_centerpoint.launch.xml \
     model_name:=aip_x2 \
     input/pointcloud:=/velodyne_points
 ```
-
-### (F) Run the visualizer for Autoware `lidar_centerpoint`
-
-Modify input topic names in the `crates/aw_viz/config/example.json5`
-configuration file. Then,
-
-```bash
-./target/release/aw_viz --config crates/aw_viz/config/example.json5
-```
-
-Before running the visualizer, you may run (A) first to enable live
- point cloud data feed and run (E) to start live `lidar_centerpoint`
- processing.
 
 ### (F) Run `det_conv_node`
 

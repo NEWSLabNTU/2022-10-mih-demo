@@ -4,8 +4,8 @@ digraph architecture {
         edge [fontname="Helvetica,Arial,sans-serif"]
 
         node [shape=cylinder]; velodyne_lidar; otobrite_camera; kneron_camera;
-	node [shape=ellipse]; velodyne_driver_node; velodyne_convert_node; camera_viz; aw_viz; lidar_centerpoint; kneron_bbox_server_node; v4l2_camera_node; det_conv_node;
-	node [shape=note]; velodyne_packets; velodyne_points; kneron_detection; image_raw; objects;
+	node [shape=ellipse]; velodyne_driver_node; velodyne_convert_node; camera_viz; autoware_rviz; lidar_centerpoint; kneron_bbox_server_node; v4l2_camera_node; det_conv_node;
+	node [shape=note]; velodyne_packets; velodyne_points; kneron_detection; otobrite_image; objects;
 
         // Velodyne 32C lidar device
         velodyne_lidar -> velodyne_driver_node
@@ -23,19 +23,19 @@ digraph architecture {
         // topic velodyne_points
         velodyne_convert_node -> velodyne_points
         velodyne_points -> camera_viz
-        velodyne_points -> aw_viz
+        velodyne_points -> autoware_rviz
         velodyne_points -> lidar_centerpoint
 
         // topic kneron_detecion
         kneron_bbox_server_node -> kneron_detection
         kneron_detection -> camera_viz
 
-        // topic image_raw
-        v4l2_camera_node -> image_raw
-        image_raw -> camera_viz
+        // topic otobrite_image
+        v4l2_camera_node -> otobrite_image
+        otobrite_image -> camera_viz
 
         // topic objects
         lidar_centerpoint -> objects
-        objects -> aw_viz
+        objects -> autoware_rviz
         objects -> det_conv_node
 }
