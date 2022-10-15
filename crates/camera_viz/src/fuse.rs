@@ -94,10 +94,8 @@ impl State {
     pub fn new(config: &Config) -> Result<Self> {
         let otobrite_projector = {
             let [h, w] = config.otobrite_image_hw;
-            let camera_params = CameraParams::new(
-                &config.otobrite_intrinsics_file,
-                &config.otobrite_extrinsics_file,
-            )?;
+            let camera_params =
+                CameraParams::new(&config.otobrite_intrinsics_file, &config.otobrite_pose())?;
 
             PointProjector {
                 height: h.get(),
@@ -122,7 +120,7 @@ impl State {
         Ok(Self {
             otobrite_projector,
             kneron_projector,
-            otobrite_rotate_180: config.otobrite_rotate_180,
+            otobrite_rotate_180: config.otobrite_image_rotate_180,
             cache: Cache::default(),
         })
     }

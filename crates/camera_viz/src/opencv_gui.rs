@@ -4,15 +4,13 @@ use async_std::task::spawn_blocking;
 use futures::prelude::*;
 use nalgebra as na;
 use opencv::{
-    calib3d,
-    core::{no_array, Point2f, Point2i, Scalar, Size, CV_32FC3},
+    core::{Point2f, Point2i, Scalar, Size, CV_32FC3},
     highgui,
     imgproc::{self, INTER_LINEAR},
     prelude::*,
 };
 use palette::{Hsv, IntoColor, RgbHue, Srgb};
 use std::{
-    cmp,
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
@@ -28,14 +26,13 @@ pub async fn start(
         otobrite_image_hw,
         kneron_image_hw,
         ref otobrite_intrinsics_file,
-        ref otobrite_extrinsics_file,
         otobrite_present_size,
         kneron_present_size,
         ..
     } = *config;
     let otobrite_camera_matrix = otobrite_intrinsics_file.camera_matrix.to_opencv();
     let otobrite_dist_coefs = otobrite_intrinsics_file.distortion_coefficients.to_opencv();
-    let otobrite_pose: na::Isometry3<f32> = na::convert_ref(&**otobrite_extrinsics_file);
+    let otobrite_pose: na::Isometry3<f32> = na::convert(config.otobrite_pose());
 
     let (tx, rx) = flume::bounded(2);
 
