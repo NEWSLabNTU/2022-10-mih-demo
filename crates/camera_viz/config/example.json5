@@ -13,8 +13,9 @@
 
     // Otobrite camera
     "otobrite_image_hw": [1080, 1920],
-    "otobrite_rotate_180": true,
+    "otobrite_image_rotate_180": true,
+    "otobrite_pcd_rotate_90": true,
     "otobrite_present_size": 960,
     "otobrite_intrinsics_file": "../../../data/otobrite.intrinsics.yaml",
-    "otobrite_extrinsics_file": "../../../data/otobrite.extrinsics.json5",
+    "otobrite_extrinsics_file": "../../../data/otobrite-extrinsics-params/solve_on_set-10,11,12,13/otobrite.extrinsics.json5",
 }
