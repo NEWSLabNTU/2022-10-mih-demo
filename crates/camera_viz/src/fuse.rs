@@ -1,3 +1,5 @@
+use std::slice;
+
 use crate::{
     config::Config,
     message as msg,
@@ -5,6 +7,7 @@ use crate::{
 };
 use anyhow::{bail, ensure, Result};
 use async_std::task::spawn_blocking;
+use fast_yuv442_to_rgb24::uvy422_to_bgr24::uyvy422_to_bgr24_chunk16_many;
 use futures::prelude::*;
 use itertools::chain;
 use nalgebra as na;
@@ -519,77 +522,21 @@ pub fn image_to_mat(image: &Image) -> Result<Mat> {
 
             mat
         }
-        "UYVY" => {
+        "UYVY" => unsafe {
             let pixel_step = 2;
             ensure!(row_step == width * pixel_step);
             ensure!(data.len() == (row_step * height) as usize);
 
-            let mut mat = Mat::new_rows_cols_with_default(
-                height as i32,
-                width as i32,
-                CV_8UC3,
-                Scalar::all(0.0),
-            )?;
-
-            data.chunks_exact(4)
-                .enumerate()
-                .for_each(|(chunk_idx, yuy2_chunk)| {
-                    let [cb, y1, cr, y2]: [u8; 4] = yuy2_chunk.try_into().unwrap();
-
-                    let pidx1 = chunk_idx * 2;
-                    let pidx2 = pidx1 + 1;
-
-                    let mut set_pixel = |rgb: [u8; 3], pidx: usize| {
-                        let [r, g, b] = rgb;
-                        let col = pidx % width as usize;
-                        let row = pidx / width as usize;
-                        let pixel: &mut Vec3b = mat.at_2d_mut(row as i32, col as i32).unwrap();
-                        *pixel = VecN([b, g, r]);
-                    };
-
-                    let rgb1 = ycbcr_to_rgb(y1, cb, cr);
-                    set_pixel(rgb1, pidx1);
-
-                    let rgb2 = ycbcr_to_rgb(y2, cb, cr);
-                    set_pixel(rgb2, pidx2);
-                });
+            let mut mat = Mat::new_rows_cols(height as i32, width as i32, CV_8UC3)?;
+            let uyvy422_buf = data;
+            let bgr24_buf =
+                slice::from_raw_parts_mut(mat.data_mut(), (height * width * 3) as usize);
+            uyvy422_to_bgr24_chunk16_many(uyvy422_buf, bgr24_buf);
 
             mat
-        }
+        },
         _ => bail!("unsupported image format {}", encoding),
     };
 
     Ok(mat)
-}
-
-fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> [u8; 3] {
-    // let y = y as f32;
-    // let cb = cb as f32 - 128.0;
-    // let cr = cr as f32 - 128.0;
-
-    // // let r = y + 1.403 * cr;
-    // // let g = y - 0.344 * cb - 0.714 * cr;
-    // // let b = y + 1.773 * cb;
-    // let r = y + 1.5748 * cr;
-    // let g = y - 0.187324 * cb - 0.468124 * cr;
-    // let b = y + 1.8556 * cb;
-
-    // let clamp = |val: f32| val.clamp(0.0, 255.0).round() as u8;
-
-    // let r = clamp(r);
-    // let g = clamp(g);
-    // let b = clamp(b);
-
-    // [r, g, b]
-
-    use yuv::{
-        color::{MatrixCoefficients, Range},
-        convert::RGBConvert,
-        RGB, YUV,
-    };
-
-    let yuv = YUV { y, u: cb, v: cr };
-    let converter = RGBConvert::<u8>::new(Range::Limited, MatrixCoefficients::BT709).unwrap();
-    let RGB { r, g, b } = converter.to_rgb(yuv);
-    [r, g, b]
 }
