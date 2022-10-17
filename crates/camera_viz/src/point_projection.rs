@@ -42,7 +42,7 @@ impl PointProjector {
                     return false;
                 }
 
-                let camera_point = pose.inverse() * point.position;
+                let camera_point = pose * point.position;
                 camera_point.z > 1.0
             })
             .map(|(idx, point)| {
