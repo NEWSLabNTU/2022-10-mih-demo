@@ -6,10 +6,12 @@
     "kneron_det_topic": "kneron_detection",
 
     // Kneron camera
-    "kneron_image_hw": [1080, 1920],
+    "kneron_image_hw": [720, 1280],
+    "kneron_det_hw": [1080, 1920],
     "kneron_present_size": 960,
+    "kneron_pcd_rotate_90": true,
     "kneron_intrinsics_file": "../../../data/kneron.intrinsics.yaml",
-    "kneron_extrinsics_file": "../../../data/kneron.extrinsics.json5",
+    "kneron_extrinsics_file": "../../../data/kneron-extrinsics-params/solve_on_set-1,2,3,4,5/kneron.extrinsics.json5",
 
     // Otobrite camera
     "otobrite_image_hw": [1080, 1920],
