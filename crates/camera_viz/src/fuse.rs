@@ -340,7 +340,22 @@ impl State {
         let assocs: Vec<msg::Association> = match &self.cache.kneron_bboxes {
             Some(bboxes) => pairs
                 .map(|(pcd_point, img_point)| {
-                    let object = bboxes.index.find(&img_point);
+                    let object = bboxes.objects.clone().flatten().find(|object| {
+                        let Rect {
+                            x: lx,
+                            y: ty,
+                            width: w,
+                            height: h,
+                        } = object.rect;
+                        let rx = lx + w;
+                        let by = ty + h;
+
+                        let x_range = (lx as f32)..=(rx as f32);
+                        let y_range = (ty as f32)..=(by as f32);
+
+                        x_range.contains(&img_point.x) && y_range.contains(&img_point.y)
+                    });
+
                     msg::Association {
                         pcd_point,
                         img_point,
