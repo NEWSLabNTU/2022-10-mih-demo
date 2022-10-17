@@ -2,7 +2,6 @@ use crate::{
     config::Config,
     message as msg,
     point_projection::{CameraParams, PointProjector},
-    rect_rtree::RectRTree,
 };
 use anyhow::{bail, ensure, Result};
 use async_std::task::spawn_blocking;
@@ -18,7 +17,7 @@ use r2r::{
     geometry_msgs::msg::Pose2D,
     log_error,
     sensor_msgs::msg::{Image, PointCloud2, PointField},
-    vision_msgs::msg::{BoundingBox2D, Detection2D, Detection2DArray},
+    vision_msgs::msg::{BoundingBox2D, Detection2DArray},
 };
 
 /// Starts a image and point cloud fusing processor.
@@ -254,11 +253,11 @@ impl State {
             })
             .collect();
         let objects = ARef::new(objects);
-        let index: RectRTree = objects.clone().flatten().collect();
+        // let index: RectRTree = objects.clone().flatten().collect();
 
         self.cache.kneron_bboxes = Some(BBoxIndex {
             objects: objects.clone(),
-            index,
+            // index,
         });
         self.update_kneron_assocs();
     }
@@ -389,7 +388,7 @@ struct Cache {
 /// Contains a vec of bboxes and a spatial R-Tree of bboxes.
 struct BBoxIndex {
     objects: msg::ArcObjVec,
-    index: RectRTree,
+    // index: RectRTree,
 }
 
 /// Converts a ROS point cloud to a vec of points.

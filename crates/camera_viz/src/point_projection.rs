@@ -2,7 +2,6 @@ use crate::{config::MrptCalibration, message as msg};
 use anyhow::Result;
 use cv_convert::{prelude::*, FromCv, OpenCvPose};
 use itertools::izip;
-use kiss3d::ncollide3d::query::PointQuery;
 use nalgebra as na;
 use opencv::{
     calib3d,
