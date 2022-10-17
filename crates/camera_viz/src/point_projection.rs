@@ -1,13 +1,13 @@
 use crate::{config::MrptCalibration, message as msg};
 use anyhow::Result;
 use cv_convert::{prelude::*, FromCv, OpenCvPose};
-use itertools::izip;
 use nalgebra as na;
 use opencv::{
     calib3d,
     core::{no_array, Point2f, Point3f, Vector},
     prelude::*,
 };
+use rayon::prelude::*;
 
 /// An utility struct that projects 3D points to 2D space.
 pub struct PointProjector {
@@ -19,10 +19,7 @@ pub struct PointProjector {
 impl PointProjector {
     /// Projects a vec of 3D points to 2D space, and returns an
     /// iterator of 2D points.
-    pub fn map<'a>(
-        &self,
-        points: &'a msg::ArcPointVec,
-    ) -> impl Iterator<Item = (msg::ArcPoint, Point2f)> + Send + 'a {
+    pub fn project<'a>(&self, points: &'a msg::ArcPointVec) -> Vec<(msg::ArcPoint, Point2f)> {
         let CameraParams {
             pose,
             rvec,
@@ -32,8 +29,8 @@ impl PointProjector {
         } = &self.camera_params;
 
         // Convert input 3D points to OpenCV Point3f type.
-        let (point_indices, object_points): (Vec<_>, Vector<Point3f>) = points
-            .iter()
+        let (point_indices, object_points): (Vec<_>, Vec<Point3f>) = points
+            .par_iter()
             .enumerate()
             .filter(|(_idx, point)| {
                 let dist_to_lidar = na::distance(&na::Point3::origin(), &point.position);
@@ -51,6 +48,7 @@ impl PointProjector {
             .unzip();
 
         // Create a vector of 2D points that will be populated.
+        let object_points: Vector<Point3f> = object_points.into_iter().collect();
         let mut image_points: Vector<Point2f> = Vector::new();
 
         // Project points onto the image
@@ -66,14 +64,14 @@ impl PointProjector {
         )
         .unwrap();
 
-        // Pair up 3D and 2D points
-        let point_pairs = izip!(point_indices, image_points);
-
         // Filter out out-of-bound projected points
         let width_range = 0.0..=(self.width as f32);
         let height_range = 0.0..=(self.height as f32);
+        let image_points: Vec<_> = image_points.into_iter().collect();
 
-        point_pairs
+        point_indices
+            .into_par_iter()
+            .zip(image_points.into_par_iter())
             .filter(move |(_idx, img_point)| {
                 width_range.contains(&img_point.x) && height_range.contains(&img_point.y)
             })
@@ -81,6 +79,7 @@ impl PointProjector {
                 let pcd_point = points.clone().map(|vec| &vec[idx]);
                 (pcd_point, img_point)
             })
+            .collect()
     }
 }
 

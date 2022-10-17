@@ -22,6 +22,7 @@ use r2r::{
     sensor_msgs::msg::{Image, PointCloud2, PointField},
     vision_msgs::msg::{BoundingBox2D, Detection2DArray},
 };
+use rayon::prelude::*;
 
 /// Starts a image and point cloud fusing processor.
 ///
@@ -29,7 +30,7 @@ use r2r::{
 /// - `input_stream`: the stream to be transformed.
 /// - `config`: Configuration data.
 pub fn start(
-    input_stream: impl Stream<Item = msg::InputMessage> + Unpin + Send,
+    mut input_stream: impl Stream<Item = msg::InputMessage> + Unpin + Send,
     config: &Config,
 ) -> Result<impl Stream<Item = msg::FuseMessage> + Send> {
     // Initialize the state
@@ -40,10 +41,16 @@ pub fn start(
     let (output_tx, output_rx) = flume::bounded(2);
 
     // Forward the stream to the input channel.
-    let forward_future = input_stream
-        .map(Ok)
-        .forward(input_tx.into_sink())
-        .map(|_result| ());
+    let forward_future = async move {
+        while let Some(msg) = input_stream.next().await {
+            let result = input_tx.try_send(msg);
+            match result {
+                Ok(()) => {}
+                Err(flume::TrySendError::Full(_)) => {}
+                Err(flume::TrySendError::Disconnected(_)) => break,
+            }
+        }
+    };
 
     // Spawn a non-async loop task that updates the state whenever a
     // message arrives.
@@ -225,7 +232,7 @@ impl State {
 
         let objects: Vec<_> = det
             .detections
-            .iter()
+            .par_iter()
             .map(|det| {
                 let class_id = det
                     .results
@@ -317,7 +324,8 @@ impl State {
         };
         let assocs: Vec<_> = self
             .otobrite_projector
-            .map(points)
+            .project(points)
+            .into_par_iter()
             .map(|(pcd_point, img_point)| msg::Association {
                 pcd_point,
                 img_point,
@@ -336,11 +344,12 @@ impl State {
         };
 
         // Compute projected 2D points.
-        let pairs = self.kneron_projector.map(points);
+        let pairs = self.kneron_projector.project(points);
 
         // Associate points with bboxes if bboxes are available.
         let assocs: Vec<msg::Association> = match &self.cache.kneron_bboxes {
             Some(bboxes) => pairs
+                .into_par_iter()
                 .map(|(pcd_point, img_point)| {
                     let object = bboxes.objects.clone().flatten().find(|object| {
                         let Rect {
@@ -366,6 +375,7 @@ impl State {
                 })
                 .collect(),
             None => pairs
+                .into_par_iter()
                 .map(|(pcd_point, img_point)| msg::Association {
                     pcd_point,
                     img_point,

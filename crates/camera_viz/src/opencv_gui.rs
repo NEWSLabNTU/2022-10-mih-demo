@@ -10,13 +10,15 @@ use opencv::{
     prelude::*,
 };
 use palette::{Hsv, IntoColor, RgbHue, Srgb};
+use rayon::prelude::*;
 use std::{
+    collections::HashMap,
     num::NonZeroUsize,
     time::{Duration, Instant},
 };
 
 const MAX_DISTANCE: f32 = 10.0;
-const INTERVAL: Duration = Duration::from_millis(100);
+const INTERVAL: Duration = Duration::from_millis(34);
 
 pub async fn start(
     config: &Config,
@@ -25,14 +27,14 @@ pub async fn start(
     let Config {
         otobrite_image_hw,
         kneron_image_hw,
-        ref otobrite_intrinsics_file,
+        // ref otobrite_intrinsics_file,
         otobrite_present_size,
         kneron_present_size,
         ..
     } = *config;
-    let otobrite_camera_matrix = otobrite_intrinsics_file.camera_matrix.to_opencv();
-    let otobrite_dist_coefs = otobrite_intrinsics_file.distortion_coefficients.to_opencv();
-    let otobrite_pose: na::Isometry3<f32> = na::convert(config.otobrite_pose());
+    // let otobrite_camera_matrix = otobrite_intrinsics_file.camera_matrix.to_opencv();
+    // let otobrite_dist_coefs = otobrite_intrinsics_file.distortion_coefficients.to_opencv();
+    // let otobrite_pose: na::Isometry3<f32> = na::convert(config.otobrite_pose());
 
     let (tx, rx) = flume::bounded(2);
 
@@ -50,10 +52,10 @@ pub async fn start(
                 kneron_present_size,
                 otobrite_image: make_zero_mat(otobrite_image_hw),
                 otobrite_image_hw,
-                otobrite_camera_matrix,
-                otobrite_dist_coefs,
                 otobrite_present_size,
-                otobrite_pose,
+                // otobrite_camera_matrix,
+                // otobrite_dist_coefs,
+                // otobrite_pose,
                 kneron_image_hw,
             }
         };
@@ -73,7 +75,10 @@ pub async fn start(
             }
 
             state.step()?;
-            until = Instant::now() + INTERVAL;
+
+            let next_until = until + INTERVAL;
+            let now = Instant::now();
+            until = if now < next_until { next_until } else { now };
         }
 
         anyhow::Ok(())
@@ -88,9 +93,9 @@ struct State {
     kneron_present_size: usize,
     otobrite_image: Mat,
     otobrite_image_hw: [usize; 2],
-    otobrite_pose: na::Isometry3<f32>,
-    otobrite_camera_matrix: Mat,
-    otobrite_dist_coefs: Mat,
+    // otobrite_pose: na::Isometry3<f32>,
+    // otobrite_camera_matrix: Mat,
+    // otobrite_dist_coefs: Mat,
     otobrite_present_size: usize,
     kneron_image_hw: [usize; 2],
 }
@@ -137,30 +142,30 @@ impl State {
 
         // Draw points
         if let Some(assocs) = assocs {
-            assocs.iter().for_each(|assoc| {
-                let distance = na::distance(&na::Point3::origin(), &assoc.pcd_point.position);
-                let color = {
-                    let deg = distance.clamp(0.0, MAX_DISTANCE) / MAX_DISTANCE * 270.0;
-                    let hue = RgbHue::from_degrees(deg);
-                    let hsv = Hsv::new(hue, 0.8, 1.0);
-                    let rgb: Srgb = hsv.into_color();
-                    let (r, g, b) = rgb.into_components();
-                    Scalar::new(b as f64 * 255.0, g as f64 * 255.0, r as f64 * 255.0, 0.0)
-                };
+            let pixels: HashMap<_, _> = assocs
+                .par_iter()
+                .map(|assoc| {
+                    let distance = na::distance(&na::Point3::origin(), &assoc.pcd_point.position);
+                    let color = {
+                        let deg = distance.clamp(0.0, MAX_DISTANCE) / MAX_DISTANCE * 270.0;
+                        let hue = RgbHue::from_degrees(deg);
+                        let hsv = Hsv::new(hue, 0.8, 1.0);
+                        let rgb: Srgb = hsv.into_color();
+                        let (r, g, b) = rgb.into_components();
+                        Scalar::new(b as f64 * 255.0, g as f64 * 255.0, r as f64 * 255.0, 0.0)
+                    };
 
-                // let color = {
-                //     let [r, g, b] = if let Some(rect) = &assoc.rect {
-                //         sample_rgb(rect)
-                //     } else {
-                //         [0.1, 0.1, 0.1]
-                //     };
-                //     Scalar::new(b, g, r, 0.0)
-                // };
-                let center = {
-                    let Point2f { x, y } = assoc.img_point;
-                    Point2i::new(x.round() as i32, y.round() as i32)
-                };
+                    let center = {
+                        let Point2f { x, y } = assoc.img_point;
+                        Point2i::new(x.round() as i32, y.round() as i32)
+                    };
 
+                    let xy = [center.x, center.y];
+                    (xy, (center, color))
+                })
+                .collect();
+
+            pixels.into_iter().for_each(|(_, (center, color))| {
                 imgproc::circle(
                     &mut canvas,
                     center,
@@ -226,22 +231,30 @@ impl State {
 
         // Draw points
         if let Some(assocs) = assocs {
-            assocs.iter().for_each(|assoc| {
-                let color = {
-                    let [r, g, b] = match assoc.object.as_deref() {
-                        Some(msg::Object {
-                            class_id: Some(ref class_id),
-                            ..
-                        }) => sample_rgb(class_id),
-                        _ => [0.5, 0.5, 0.5],
+            let pixels: HashMap<_, _> = assocs
+                .par_iter()
+                .map(|assoc| {
+                    let color = {
+                        let [r, g, b] = match assoc.object.as_deref() {
+                            Some(msg::Object {
+                                class_id: Some(ref class_id),
+                                ..
+                            }) => sample_rgb(class_id),
+                            _ => [0.5, 0.5, 0.5],
+                        };
+                        Scalar::new(b, g, r, 0.0)
                     };
-                    Scalar::new(b, g, r, 0.0)
-                };
-                let center = {
-                    let Point2f { x, y } = assoc.img_point;
-                    Point2i::new(x.round() as i32, y.round() as i32)
-                };
+                    let center = {
+                        let Point2f { x, y } = assoc.img_point;
+                        Point2i::new(x.round() as i32, y.round() as i32)
+                    };
 
+                    let xy = [center.x, center.y];
+                    (xy, (center, color))
+                })
+                .collect();
+
+            pixels.into_iter().for_each(|(_, (center, color))| {
                 imgproc::circle(
                     &mut canvas,
                     center,

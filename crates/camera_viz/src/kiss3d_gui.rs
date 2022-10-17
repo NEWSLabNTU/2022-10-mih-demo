@@ -1,7 +1,6 @@
 use crate::{color_sampling::sample_rgb, message as msg};
 use async_std::task::spawn_blocking;
 use futures::prelude::*;
-use itertools::chain;
 use kiss3d::{
     camera::{ArcBall, Camera},
     event::{Action, Key, Modifiers, WindowEvent},
@@ -13,7 +12,7 @@ use kiss3d::{
 };
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use std::collections::HashMap;
+use rayon::prelude::*;
 
 /// Starts the Kiss3d GUI interface.
 pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send) {
@@ -28,6 +27,7 @@ pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send
         // Creates a window.
         let window = {
             let mut window = Window::new("demo");
+            window.set_framerate_limit(Some(30));
             window.set_light(Light::StickToCamera);
             window
         };
@@ -102,7 +102,7 @@ impl State {
         } = msg;
 
         // Collect background points
-        let background_points = points.flatten().map(|point: msg::ArcPoint| {
+        let background_points = points.par_iter().map(|point: &msg::Point| {
             let color = na::Point3::new(0.5, 0.5, 0.5);
             (point, color)
         });
@@ -111,8 +111,8 @@ impl State {
         let object_points = kneron_assocs
             .as_ref()
             .map(|assocs: &msg::ArcAssocVec| {
-                assocs.iter().filter_map(|assoc: &msg::Association| {
-                    let point: msg::ArcPoint = assoc.pcd_point.clone();
+                assocs.par_iter().filter_map(|assoc: &msg::Association| {
+                    let point: &msg::Point = &assoc.pcd_point;
                     let [r, g, b] = match assoc.object.as_deref() {
                         Some(msg::Object {
                             class_id: Some(ref class_id),
@@ -124,17 +124,12 @@ impl State {
                     Some((point, color))
                 })
             })
-            .into_iter()
+            .into_par_iter()
             .flatten();
 
-        // Merge background and object points into a hash map, indexed
-        // by pointer address of points.
-        let points: HashMap<msg::ArcPoint, na::Point3<f32>> =
-            chain!(background_points, object_points).collect();
-
         // Store points along with their colors
-        self.points = points
-            .into_iter()
+        self.points = background_points
+            .chain(object_points)
             .map(|(point, color)| ColoredPoint {
                 position: point.position,
                 color,
