@@ -105,13 +105,7 @@ Before running the visualizer, you may run (A), (B) and (C) first.
 
 ### (E) Run `lidar_centerpoint`
 
-TODO: The command is outdated.
-
-```bash
-ros2 launch lidar_centerpoint lidar_centerpoint.launch.xml \
-    model_name:=aip_x2 \
-    input/pointcloud:=/velodyne_points
-```
+Go check [wiki](https://newslabn.csie.ntu.edu.tw:3000/en/wayside-team/notes/2022-09-22_run-autoware-lidar_centerpoint) to setup autoware and Rviz2 environment. And follow the commend to run lidar_centerpoint.
 
 ### (F) Run `det_conv_node`
 
