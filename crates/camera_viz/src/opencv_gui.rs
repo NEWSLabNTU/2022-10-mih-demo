@@ -137,47 +137,41 @@ impl State {
 
         // Draw points
         if let Some(assocs) = assocs {
-            assocs
-                .iter()
-                .filter(|assoc| {
-                    let camera_point = self.otobrite_pose * assoc.pcd_point.position;
-                    camera_point.z > 0.0
-                })
-                .for_each(|assoc| {
-                    let distance = na::distance(&na::Point3::origin(), &assoc.pcd_point.position);
-                    let color = {
-                        let deg = distance.clamp(0.0, MAX_DISTANCE) / MAX_DISTANCE * 270.0;
-                        let hue = RgbHue::from_degrees(deg);
-                        let hsv = Hsv::new(hue, 0.8, 1.0);
-                        let rgb: Srgb = hsv.into_color();
-                        let (r, g, b) = rgb.into_components();
-                        Scalar::new(b as f64 * 255.0, g as f64 * 255.0, r as f64 * 255.0, 0.0)
-                    };
+            assocs.iter().for_each(|assoc| {
+                let distance = na::distance(&na::Point3::origin(), &assoc.pcd_point.position);
+                let color = {
+                    let deg = distance.clamp(0.0, MAX_DISTANCE) / MAX_DISTANCE * 270.0;
+                    let hue = RgbHue::from_degrees(deg);
+                    let hsv = Hsv::new(hue, 0.8, 1.0);
+                    let rgb: Srgb = hsv.into_color();
+                    let (r, g, b) = rgb.into_components();
+                    Scalar::new(b as f64 * 255.0, g as f64 * 255.0, r as f64 * 255.0, 0.0)
+                };
 
-                    // let color = {
-                    //     let [r, g, b] = if let Some(rect) = &assoc.rect {
-                    //         sample_rgb(rect)
-                    //     } else {
-                    //         [0.1, 0.1, 0.1]
-                    //     };
-                    //     Scalar::new(b, g, r, 0.0)
-                    // };
-                    let center = {
-                        let Point2f { x, y } = assoc.img_point;
-                        Point2i::new(x.round() as i32, y.round() as i32)
-                    };
+                // let color = {
+                //     let [r, g, b] = if let Some(rect) = &assoc.rect {
+                //         sample_rgb(rect)
+                //     } else {
+                //         [0.1, 0.1, 0.1]
+                //     };
+                //     Scalar::new(b, g, r, 0.0)
+                // };
+                let center = {
+                    let Point2f { x, y } = assoc.img_point;
+                    Point2i::new(x.round() as i32, y.round() as i32)
+                };
 
-                    imgproc::circle(
-                        &mut canvas,
-                        center,
-                        1, // radius
-                        color,
-                        1, // thickness
-                        imgproc::LINE_8,
-                        0, // shift
-                    )
-                    .unwrap();
-                });
+                imgproc::circle(
+                    &mut canvas,
+                    center,
+                    1, // radius
+                    color,
+                    1, // thickness
+                    imgproc::LINE_8,
+                    0, // shift
+                )
+                .unwrap();
+            });
         }
 
         // Scale image
@@ -205,19 +199,19 @@ impl State {
     }
 
     fn update_kneron(&mut self, msg: msg::KneronMessage) -> Result<()> {
-        let msg::KneronMessage { assocs, rects } = msg;
+        let msg::KneronMessage { assocs, objects } = msg;
         let mut canvas: Mat = make_zero_mat(self.kneron_image_hw);
 
         // Draw rectangles
-        if let Some(rects) = rects {
-            rects.clone().flatten().for_each(|rect: msg::ArcRect| {
+        if let Some(objects) = objects {
+            objects.clone().flatten().for_each(|object: msg::ArcObj| {
                 // Sample color using the pointer value of ArcRefC
-                let [r, g, b] = sample_rgb(&rect);
+                let [r, g, b] = sample_rgb(&object.class_id);
                 let color = Scalar::new(b, g, r, 0.0);
 
                 imgproc::rectangle(
                     &mut canvas,
-                    *rect,
+                    object.rect,
                     color,
                     1, // thickness
                     imgproc::LINE_8,
@@ -231,10 +225,9 @@ impl State {
         if let Some(assocs) = assocs {
             assocs.iter().for_each(|assoc| {
                 let color = {
-                    let [r, g, b] = if let Some(rect) = &assoc.rect {
-                        [0.5, 1.0, 1.0]
-                    } else {
-                        [0.5, 0.5, 0.5]
+                    let [r, g, b] = match &assoc.object {
+                        Some(object) => sample_rgb(&object.class_id),
+                        None => [0.5, 0.5, 0.5],
                     };
                     Scalar::new(b, g, r, 0.0)
                 };

@@ -2,6 +2,7 @@ use crate::{config::MrptCalibration, message as msg};
 use anyhow::Result;
 use cv_convert::{prelude::*, FromCv, OpenCvPose};
 use itertools::izip;
+use kiss3d::ncollide3d::query::PointQuery;
 use nalgebra as na;
 use opencv::{
     calib3d,
@@ -19,11 +20,12 @@ pub struct PointProjector {
 impl PointProjector {
     /// Projects a vec of 3D points to 2D space, and returns an
     /// iterator of 2D points.
-    pub fn map(
+    pub fn map<'a>(
         &self,
-        points: &msg::ArcPointVec,
-    ) -> impl Iterator<Item = (msg::ArcPoint, Point2f)> + Send {
+        points: &'a msg::ArcPointVec,
+    ) -> impl Iterator<Item = (msg::ArcPoint, Point2f)> + Send + 'a {
         let CameraParams {
+            pose,
             rvec,
             tvec,
             camera_matrix,
@@ -31,11 +33,23 @@ impl PointProjector {
         } = &self.camera_params;
 
         // Convert input 3D points to OpenCV Point3f type.
-        let object_points: Vector<Point3f> = points
+        let (point_indices, object_points): (Vec<_>, Vector<Point3f>) = points
             .iter()
-            .map(|point| &point.position)
-            .map(Point3f::from_cv)
-            .collect();
+            .enumerate()
+            .filter(|(_idx, point)| {
+                let dist_to_lidar = na::distance(&na::Point3::origin(), &point.position);
+                if dist_to_lidar <= 1.0 {
+                    return false;
+                }
+
+                let camera_point = pose.inverse() * point.position;
+                camera_point.z > 1.0
+            })
+            .map(|(idx, point)| {
+                let point3f = Point3f::from_cv(&point.position);
+                (idx, point3f)
+            })
+            .unzip();
 
         // Create a vector of 2D points that will be populated.
         let mut image_points: Vector<Point2f> = Vector::new();
@@ -54,20 +68,26 @@ impl PointProjector {
         .unwrap();
 
         // Pair up 3D and 2D points
-        let point_pairs = izip!(points.clone().flatten(), image_points);
+        let point_pairs = izip!(point_indices, image_points);
 
         // Filter out out-of-bound projected points
         let width_range = 0.0..=(self.width as f32);
         let height_range = 0.0..=(self.height as f32);
 
-        point_pairs.filter(move |(_pcd_point, img_point)| {
-            width_range.contains(&img_point.x) && height_range.contains(&img_point.y)
-        })
+        point_pairs
+            .filter(move |(_idx, img_point)| {
+                width_range.contains(&img_point.x) && height_range.contains(&img_point.y)
+            })
+            .map(move |(idx, img_point)| {
+                let pcd_point = points.clone().map(|vec| &vec[idx]);
+                (pcd_point, img_point)
+            })
     }
 }
 
 /// Stores the intrinsic and extrinsic parameters of a camera.
 pub struct CameraParams {
+    pub pose: na::Isometry3<f32>,
     pub rvec: Mat,
     pub tvec: Mat,
     pub camera_matrix: Mat,
@@ -80,6 +100,7 @@ impl CameraParams {
         let camera_matrix = intrinsics.camera_matrix.to_opencv();
         let distortion_coefficients = intrinsics.distortion_coefficients.to_opencv();
         Ok(Self {
+            pose: na::convert_ref(extrinsics),
             rvec,
             tvec,
             camera_matrix,

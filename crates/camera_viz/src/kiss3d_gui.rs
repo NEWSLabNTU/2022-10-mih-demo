@@ -113,8 +113,10 @@ impl State {
             .map(|assocs: &msg::ArcAssocVec| {
                 assocs.iter().filter_map(|assoc: &msg::Association| {
                     let point: msg::ArcPoint = assoc.pcd_point.clone();
-                    let rect: &msg::ArcRect = assoc.rect.as_ref()?;
-                    let [r, g, b] = sample_rgb(rect);
+                    let [r, g, b] = match &assoc.object {
+                        Some(object) => sample_rgb(&object.class_id),
+                        None => [0.5, 0.5, 0.5],
+                    };
                     let color = na::Point3::new(r as f32, g as f32, b as f32);
                     Some((point, color))
                 })

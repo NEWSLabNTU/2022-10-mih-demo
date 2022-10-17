@@ -13,8 +13,8 @@ use r2r::{
 
 pub type ArcPointVec = ARef<'static, Vec<Point>>;
 pub type ArcPoint = ARef<'static, Vec<Point>, Point>;
-pub type ArcRectVec = ARef<'static, Vec<Rect>>;
-pub type ArcRect = ARef<'static, Vec<Rect>, Rect>;
+pub type ArcObjVec = ARef<'static, Vec<Object>>;
+pub type ArcObj = ARef<'static, Vec<Object>, Object>;
 pub type ArcAssocVec = ARef<'static, Vec<Association>>;
 
 /// An input message that can be a point cloud from LiDAR, an image
@@ -63,7 +63,7 @@ pub struct OtobriteMessage {
 /// LiDAR points.
 #[derive(Debug)]
 pub struct KneronMessage {
-    pub rects: Option<ArcRectVec>,
+    pub objects: Option<ArcObjVec>,
     pub assocs: Option<ArcAssocVec>,
 }
 
@@ -105,5 +105,12 @@ pub struct Point {
 pub struct Association {
     pub pcd_point: ArcPoint,
     pub img_point: Point2f,
-    pub rect: Option<ArcRect>,
+    pub object: Option<ArcObj>,
+}
+
+/// An object containing a bounding box and a class ID.
+#[derive(Debug)]
+pub struct Object {
+    pub rect: Rect,
+    pub class_id: Option<String>,
 }

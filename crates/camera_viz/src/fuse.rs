@@ -18,7 +18,7 @@ use r2r::{
     geometry_msgs::msg::Pose2D,
     log_error,
     sensor_msgs::msg::{Image, PointCloud2, PointField},
-    vision_msgs::msg::{BoundingBox2D, Detection2DArray},
+    vision_msgs::msg::{BoundingBox2D, Detection2D, Detection2DArray},
 };
 
 /// Starts a image and point cloud fusing processor.
@@ -150,7 +150,7 @@ impl State {
                     .into()
                 });
                 let kneron_msg: msg::FuseMessage = msg::KneronMessage {
-                    rects: kneron_bboxes.as_ref().map(|bboxes| bboxes.rects.clone()),
+                    objects: kneron_bboxes.as_ref().map(|bboxes| bboxes.objects.clone()),
                     assocs: kneron_assocs.clone(),
                 }
                 .into();
@@ -197,7 +197,7 @@ impl State {
                     .into()
                 });
                 let kneron_msg: msg::FuseMessage = msg::KneronMessage {
-                    rects: kneron_bboxes.as_ref().map(|bboxes| bboxes.rects.clone()),
+                    objects: kneron_bboxes.as_ref().map(|bboxes| bboxes.objects.clone()),
                     assocs: kneron_assocs.clone(),
                 }
                 .into();
@@ -210,10 +210,14 @@ impl State {
 
     /// Processes a Kneron detection message and updates its state.
     pub fn update_kneron_det(&mut self, det: Detection2DArray) {
-        let rects: Vec<_> = det
+        let objects: Vec<_> = det
             .detections
             .iter()
             .map(|det| {
+                let class_id = det
+                    .results
+                    .get(0)
+                    .map(|res| res.hypothesis.class_id.clone());
                 let BoundingBox2D {
                     size_x,
                     size_y,
@@ -224,19 +228,22 @@ impl State {
                 let ltx = cx - size_x / 2.0;
                 let lty = cy - size_y / 2.0;
 
-                Rect {
-                    x: ltx as i32,
-                    y: lty as i32,
-                    width: size_x as i32,
-                    height: size_y as i32,
+                msg::Object {
+                    class_id,
+                    rect: Rect {
+                        x: ltx as i32,
+                        y: lty as i32,
+                        width: size_x as i32,
+                        height: size_y as i32,
+                    },
                 }
             })
             .collect();
-        let rects = ARef::new(rects);
-        let index: RectRTree = rects.clone().flatten().collect();
+        let objects = ARef::new(objects);
+        let index: RectRTree = objects.clone().flatten().collect();
 
         self.cache.kneron_bboxes = Some(BBoxIndex {
-            rects: rects.clone(),
+            objects: objects.clone(),
             index,
         });
         self.update_kneron_assocs();
@@ -298,7 +305,7 @@ impl State {
             .map(|(pcd_point, img_point)| msg::Association {
                 pcd_point,
                 img_point,
-                rect: None,
+                object: None,
             })
             .collect();
 
@@ -319,11 +326,11 @@ impl State {
         let assocs: Vec<msg::Association> = match &self.cache.kneron_bboxes {
             Some(bboxes) => pairs
                 .map(|(pcd_point, img_point)| {
-                    let rect = bboxes.index.find(&img_point);
+                    let object = bboxes.index.find(&img_point);
                     msg::Association {
                         pcd_point,
                         img_point,
-                        rect,
+                        object,
                     }
                 })
                 .collect(),
@@ -331,7 +338,7 @@ impl State {
                 .map(|(pcd_point, img_point)| msg::Association {
                     pcd_point,
                     img_point,
-                    rect: None,
+                    object: None,
                 })
                 .collect(),
         };
@@ -352,7 +359,7 @@ struct Cache {
 
 /// Contains a vec of bboxes and a spatial R-Tree of bboxes.
 struct BBoxIndex {
-    rects: msg::ArcRectVec,
+    objects: msg::ArcObjVec,
     index: RectRTree,
 }
 

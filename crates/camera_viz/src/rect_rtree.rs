@@ -10,20 +10,20 @@ pub struct RectRTree {
 
 impl RectRTree {
     /// Finds a rectangle containing the query point.
-    pub fn find(&self, point: &Point2f) -> Option<msg::ArcRect> {
+    pub fn find(&self, point: &Point2f) -> Option<msg::ArcObj> {
         let Point2f { x, y } = *point;
         self.rtree
             .locate_at_point(&[x, y])
-            .map(|entry| entry.rect.clone())
+            .map(|entry| entry.object.clone())
     }
 }
 
-impl FromIterator<msg::ArcRect> for RectRTree {
+impl FromIterator<msg::ArcObj> for RectRTree {
     fn from_iter<T>(iter: T) -> Self
     where
-        T: IntoIterator<Item = msg::ArcRect>,
+        T: IntoIterator<Item = msg::ArcObj>,
     {
-        let vec: Vec<_> = iter.into_iter().map(|rect| Entry { rect }).collect();
+        let vec: Vec<_> = iter.into_iter().map(|object| Entry { object }).collect();
         let rtree = RTree::bulk_load(vec);
         Self { rtree }
     }
@@ -32,7 +32,7 @@ impl FromIterator<msg::ArcRect> for RectRTree {
 /// An entry of the RectRTree.
 #[derive(Debug)]
 struct Entry {
-    rect: msg::ArcRect,
+    object: msg::ArcObj,
 }
 
 impl RTreeObject for Entry {
@@ -44,7 +44,7 @@ impl RTreeObject for Entry {
             y,
             width,
             height,
-        } = *self.rect;
+        } = self.object.rect;
         let lt = [
             x as f32 - width as f32 / 2.0,
             y as f32 - height as f32 / 2.0,
