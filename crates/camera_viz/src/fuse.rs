@@ -87,6 +87,7 @@ struct State {
     otobrite_projector: PointProjector,
     kneron_projector: PointProjector,
     otobrite_rotate_180: bool,
+    kneron_scale_hw: [f64; 2],
 }
 
 impl State {
@@ -115,11 +116,21 @@ impl State {
             }
         };
 
+        let kneron_scale_hw = {
+            let [image_h, image_w] = config.kneron_image_hw;
+            let [det_h, det_w] = config.kneron_det_hw;
+            [
+                image_h.get() as f64 / det_h.get() as f64,
+                image_w.get() as f64 / det_w.get() as f64,
+            ]
+        };
+
         Ok(Self {
             otobrite_projector,
             kneron_projector,
             otobrite_rotate_180: config.otobrite_image_rotate_180,
             cache: Cache::default(),
+            kneron_scale_hw,
         })
     }
 
@@ -208,6 +219,8 @@ impl State {
 
     /// Processes a Kneron detection message and updates its state.
     pub fn update_kneron_det(&mut self, det: Detection2DArray) {
+        let [scale_h, scale_w] = self.kneron_scale_hw;
+
         let objects: Vec<_> = det
             .detections
             .iter()
@@ -223,16 +236,19 @@ impl State {
                 } = det.bbox;
 
                 // left-top x and y
-                let ltx = cx - size_x / 2.0;
-                let lty = cy - size_y / 2.0;
+                let ltx = (cx - size_x / 2.0) * scale_w;
+                let lty = (cy - size_y / 2.0) * scale_h;
+
+                let width = size_x * scale_w;
+                let height = size_y * scale_h;
 
                 msg::Object {
                     class_id,
                     rect: Rect {
                         x: ltx as i32,
                         y: lty as i32,
-                        width: size_x as i32,
-                        height: size_y as i32,
+                        width: width as i32,
+                        height: height as i32,
                     },
                 }
             })

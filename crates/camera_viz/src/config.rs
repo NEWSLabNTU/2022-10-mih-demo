@@ -47,10 +47,11 @@ pub struct Config {
     /// The extrinsic parameters file.
     otobrite_extrinsics_file: Json5Path<na::Isometry3<f64>>,
 
-    pub otobrite_image_hw: [NonZeroUsize; 2],
     pub kneron_image_hw: [NonZeroUsize; 2],
+    pub kneron_det_hw: [NonZeroUsize; 2],
     pub kneron_pcd_rotate_90: bool,
 
+    pub otobrite_image_hw: [NonZeroUsize; 2],
     pub otobrite_image_rotate_180: bool,
     pub otobrite_pcd_rotate_90: bool,
     pub otobrite_present_size: usize,
