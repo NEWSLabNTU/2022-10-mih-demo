@@ -204,9 +204,12 @@ impl State {
 
         // Draw rectangles
         if let Some(objects) = objects {
-            objects.clone().flatten().for_each(|object: msg::ArcObj| {
+            objects.iter().for_each(|object: &msg::Object| {
                 // Sample color using the pointer value of ArcRefC
-                let [r, g, b] = sample_rgb(&object.class_id);
+                let [r, g, b] = match &object.class_id {
+                    Some(class_id) => sample_rgb(class_id),
+                    None => [1.0, 1.0, 1.0],
+                };
                 let color = Scalar::new(b, g, r, 0.0);
 
                 imgproc::rectangle(
@@ -225,9 +228,12 @@ impl State {
         if let Some(assocs) = assocs {
             assocs.iter().for_each(|assoc| {
                 let color = {
-                    let [r, g, b] = match &assoc.object {
-                        Some(object) => sample_rgb(&object.class_id),
-                        None => [0.5, 0.5, 0.5],
+                    let [r, g, b] = match assoc.object.as_deref() {
+                        Some(msg::Object {
+                            class_id: Some(ref class_id),
+                            ..
+                        }) => sample_rgb(class_id),
+                        _ => [0.5, 0.5, 0.5],
                     };
                     Scalar::new(b, g, r, 0.0)
                 };
