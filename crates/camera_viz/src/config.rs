@@ -37,7 +37,7 @@ pub struct Config {
     pub kneron_intrinsics_file: YamlPath<MrptCalibration>,
 
     /// The extrinsic parameters file.
-    pub kneron_extrinsics_file: Json5Path<na::Isometry3<f64>>,
+    kneron_extrinsics_file: Json5Path<na::Isometry3<f64>>,
 
     pub kneron_present_size: usize,
 
@@ -49,6 +49,7 @@ pub struct Config {
 
     pub otobrite_image_hw: [NonZeroUsize; 2],
     pub kneron_image_hw: [NonZeroUsize; 2],
+    pub kneron_pcd_rotate_90: bool,
 
     pub otobrite_image_rotate_180: bool,
     pub otobrite_pcd_rotate_90: bool,
@@ -59,9 +60,18 @@ impl Config {
     pub fn otobrite_pose(&self) -> na::Isometry3<f64> {
         if self.otobrite_pcd_rotate_90 {
             *self.otobrite_extrinsics_file
-                * na::UnitQuaternion::from_euler_angles(0.0, 0.0, (90.0).to_radians())
+                * na::UnitQuaternion::from_euler_angles(0.0, 0.0, 90.0.to_radians())
         } else {
             (*self.otobrite_extrinsics_file).clone()
+        }
+    }
+
+    pub fn kneron_pose(&self) -> na::Isometry3<f64> {
+        if self.kneron_pcd_rotate_90 {
+            *self.kneron_extrinsics_file
+                * na::UnitQuaternion::from_euler_angles(0.0, 0.0, 90.0.to_radians())
+        } else {
+            (*self.kneron_extrinsics_file).clone()
         }
     }
 }

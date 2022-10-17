@@ -105,10 +105,8 @@ impl State {
         };
         let kneron_projector = {
             let [h, w] = config.kneron_image_hw;
-            let camera_params = CameraParams::new(
-                &config.kneron_intrinsics_file,
-                &config.kneron_extrinsics_file,
-            )?;
+            let camera_params =
+                CameraParams::new(&config.kneron_intrinsics_file, &config.kneron_pose())?;
 
             PointProjector {
                 height: h.get(),
