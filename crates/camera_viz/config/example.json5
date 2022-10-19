@@ -7,20 +7,24 @@
 
     // Kneron camera
     "kneron_image_hw": [720, 1280],
-    "kneron_det_hw": [1080, 1920],
-    "kneron_present_size": 960,
+    "kneron_det_hw": [1088, 1920],
+    "kneron_det_present_size": 400,
+    "kneron_fused_present_size": 960,
     "kneron_pcd_rotate_90": true,
+    "kneron_distance_range": [2, 4],
     "kneron_image_roi_tlbr": [0, 130, 720, 850],
     "kneron_intrinsics_file": "../../../data/kneron.intrinsics.yaml",
-    "kneron_extrinsics_file": "../../../data/kneron-extrinsics-params/solve_on_set-1,2,3,4,5/kneron.extrinsics.json5",
+    "kneron_extrinsics_file": "../../../data/kneron-extrinsics-params/solve_on_set-6,7,8,9,10,11/kneron.extrinsics.json5",
 
     // Otobrite camera
     "otobrite_image_hw": [1080, 1920],
     "otobrite_image_rotate_180": true,
     "otobrite_pcd_rotate_90": true,
-    "otobrite_present_size": 960,
-    "otobrite_distance_range": [2, 6],
+    "otobrite_raw_present_size": 400,
+    "otobrite_fused_present_size": 960,
+    "otobrite_distance_range": [2, 4],
+    "otobrite_hue_range": [30, 300],
     "otobrite_image_roi_tlbr": [0, 620, 1080, 1700],
     "otobrite_intrinsics_file": "../../../data/otobrite.intrinsics.yaml",
-    "otobrite_extrinsics_file": "../../../data/otobrite-extrinsics-params/solve_on_set-10,11,12,13/otobrite.extrinsics.json5",
+    "otobrite_extrinsics_file": "../../../data/otobrite-extrinsics-params/solve_on_set-18/otobrite.extrinsics.json5",
 }
