@@ -119,7 +119,7 @@ async fn main() -> Result<()> {
             DetectedObjects { header, objects }
         })
         .inspect(|objects| {
-            println!("{:?}", objects);
+            println!("{:#?}", objects);
         });
 
     let conv_future = match publisher {
