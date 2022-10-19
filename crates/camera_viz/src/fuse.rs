@@ -12,7 +12,7 @@ use futures::prelude::*;
 use itertools::chain;
 use nalgebra as na;
 use opencv::{
-    core::{Rect, ROTATE_180},
+    core::{Rect, Scalar, Vec3b, VecN, CV_8UC3, ROTATE_180},
     prelude::*,
 };
 use ownref::ArcRefA as ARef;
@@ -94,13 +94,13 @@ pub fn start(
 struct State {
     cache: Cache,
     otobrite_projector: PointProjector,
-    kneron_projector: PointProjector,
     otobrite_rotate_180: bool,
+    kneron_projector: PointProjector,
     kneron_scale_hw: [f64; 2],
 }
 
 impl State {
-    /// Creata a new state.
+    /// Create a new state.
     pub fn new(config: &Config) -> Result<Self> {
         let otobrite_projector = {
             let [h, w] = config.otobrite_image_hw;
@@ -472,8 +472,6 @@ pub fn pcd_to_points(pcd: &PointCloud2) -> Result<Vec<msg::Point>> {
 
 /// Converts a ROS image to an OpenCV Mat.
 pub fn image_to_mat(image: &Image) -> Result<Mat> {
-    use opencv::core::{Scalar, Vec3b, VecN, CV_8UC3};
-
     let Image {
         height,
         width,

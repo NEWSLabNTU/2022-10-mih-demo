@@ -27,35 +27,30 @@ pub struct Config {
     /// Input topic for point cloud.
     pub pcd_topic: String,
 
-    /// Input topic for image.
-    pub otobrite_img_topic: String,
-
     /// Input topic for 2D detected objects.
     pub kneron_det_topic: String,
-
     /// The intrinsic parameters file.
     pub kneron_intrinsics_file: YamlPath<MrptCalibration>,
-
     /// The extrinsic parameters file.
     kneron_extrinsics_file: Json5Path<na::Isometry3<f64>>,
-
     pub kneron_present_size: usize,
-
-    /// The intrinsic parameters file.
-    pub otobrite_intrinsics_file: YamlPath<MrptCalibration>,
-
-    /// The extrinsic parameters file.
-    otobrite_extrinsics_file: Json5Path<na::Isometry3<f64>>,
-
     pub kneron_image_hw: [NonZeroUsize; 2],
     pub kneron_det_hw: [NonZeroUsize; 2],
     pub kneron_pcd_rotate_90: bool,
+    pub kneron_image_roi_tlbr: [usize; 4],
 
+    /// Input topic for image.
+    pub otobrite_img_topic: String,
     pub otobrite_image_hw: [NonZeroUsize; 2],
+    pub otobrite_image_roi_tlbr: [usize; 4],
     pub otobrite_image_rotate_180: bool,
     pub otobrite_pcd_rotate_90: bool,
     pub otobrite_present_size: usize,
     pub otobrite_distance_range: [f32; 2],
+    /// The intrinsic parameters file.
+    pub otobrite_intrinsics_file: YamlPath<MrptCalibration>,
+    /// The extrinsic parameters file.
+    otobrite_extrinsics_file: Json5Path<na::Isometry3<f64>>,
 }
 
 impl Config {
@@ -64,7 +59,7 @@ impl Config {
             *self.otobrite_extrinsics_file
                 * na::UnitQuaternion::from_euler_angles(0.0, 0.0, 90.0.to_radians())
         } else {
-            (*self.otobrite_extrinsics_file).clone()
+            *self.otobrite_extrinsics_file
         }
     }
 
@@ -73,7 +68,7 @@ impl Config {
             *self.kneron_extrinsics_file
                 * na::UnitQuaternion::from_euler_angles(0.0, 0.0, 90.0.to_radians())
         } else {
-            (*self.kneron_extrinsics_file).clone()
+            *self.kneron_extrinsics_file
         }
     }
 }

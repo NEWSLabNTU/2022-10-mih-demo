@@ -1,10 +1,10 @@
 use crate::{color_sampling::sample_rgb, config::Config, message as msg};
-use anyhow::{ensure, Result};
+use anyhow::Result;
 use async_std::task::spawn_blocking;
 use futures::prelude::*;
 use nalgebra as na;
 use opencv::{
-    core::{Point2f, Point2i, Scalar, Size, CV_32FC3},
+    core::{Point2f, Point2i, Rect, Scalar, Size, CV_32FC3},
     highgui,
     imgproc::{self, INTER_LINEAR},
     prelude::*,
@@ -31,6 +31,8 @@ pub async fn start(
         otobrite_present_size,
         kneron_present_size,
         otobrite_distance_range,
+        otobrite_image_roi_tlbr,
+        kneron_image_roi_tlbr,
         ..
     } = *config;
     // let otobrite_camera_matrix = otobrite_intrinsics_file.camera_matrix.to_opencv();
@@ -50,8 +52,21 @@ pub async fn start(
 
         let mut state = {
             let convert_hw = |[h, w]: [NonZeroUsize; 2]| [h.get(), w.get()];
+            let tlbr_to_rect = |[t, l, b, r]: [usize; 4]| -> Rect {
+                let width = r - l;
+                let height = b - t;
+                Rect {
+                    x: l as i32,
+                    y: t as i32,
+                    width: width as i32,
+                    height: height as i32,
+                }
+            };
+
             let otobrite_image_hw = convert_hw(otobrite_image_hw);
             let kneron_image_hw = convert_hw(kneron_image_hw);
+            let otobrite_image_roi = tlbr_to_rect(otobrite_image_roi_tlbr);
+            let kneron_image_roi = tlbr_to_rect(kneron_image_roi_tlbr);
 
             State {
                 kneron_image: make_zero_mat(kneron_image_hw),
@@ -64,6 +79,8 @@ pub async fn start(
                 // otobrite_pose,
                 kneron_image_hw,
                 otobrite_distance_range,
+                otobrite_image_roi,
+                kneron_image_roi,
             }
         };
         let mut until = Instant::now() + INTERVAL;
@@ -106,6 +123,8 @@ struct State {
     otobrite_present_size: usize,
     kneron_image_hw: [usize; 2],
     otobrite_distance_range: RangeInclusive<f32>,
+    otobrite_image_roi: Rect,
+    kneron_image_roi: Rect,
 }
 
 impl State {
@@ -193,6 +212,9 @@ impl State {
                 .unwrap();
             });
         }
+
+        // Crop
+        let canvas = Mat::roi(&canvas, self.otobrite_image_roi)?;
 
         // Scale image
         let canvas = {
@@ -282,6 +304,9 @@ impl State {
                 .unwrap();
             });
         }
+
+        // Crop
+        let canvas = Mat::roi(&canvas, self.kneron_image_roi)?;
 
         // Scale image
         let canvas = {
