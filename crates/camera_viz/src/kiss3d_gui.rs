@@ -26,7 +26,7 @@ pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send
     let handle_future = spawn_blocking(move || {
         // Creates a window.
         let window = {
-            let mut window = Window::new("demo");
+            let mut window = Window::new("Point Cloud");
             window.set_framerate_limit(Some(30));
             window.set_light(Light::StickToCamera);
             window

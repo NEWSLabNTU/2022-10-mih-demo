@@ -33,11 +33,13 @@ pub struct Config {
     pub kneron_intrinsics_file: YamlPath<MrptCalibration>,
     /// The extrinsic parameters file.
     kneron_extrinsics_file: Json5Path<na::Isometry3<f64>>,
-    pub kneron_present_size: usize,
+    pub kneron_det_present_size: usize,
+    pub kneron_fused_present_size: usize,
     pub kneron_image_hw: [NonZeroUsize; 2],
     pub kneron_det_hw: [NonZeroUsize; 2],
     pub kneron_pcd_rotate_90: bool,
     pub kneron_image_roi_tlbr: [usize; 4],
+    pub kneron_distance_range: [f32; 2],
 
     /// Input topic for image.
     pub otobrite_img_topic: String,
@@ -45,8 +47,10 @@ pub struct Config {
     pub otobrite_image_roi_tlbr: [usize; 4],
     pub otobrite_image_rotate_180: bool,
     pub otobrite_pcd_rotate_90: bool,
-    pub otobrite_present_size: usize,
+    pub otobrite_raw_present_size: usize,
+    pub otobrite_fused_present_size: usize,
     pub otobrite_distance_range: [f32; 2],
+    pub otobrite_hue_range: [f32; 2],
     /// The intrinsic parameters file.
     pub otobrite_intrinsics_file: YamlPath<MrptCalibration>,
     /// The extrinsic parameters file.
