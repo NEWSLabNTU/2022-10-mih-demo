@@ -55,6 +55,7 @@ pub struct Config {
     pub otobrite_image_rotate_180: bool,
     pub otobrite_pcd_rotate_90: bool,
     pub otobrite_present_size: usize,
+    pub otobrite_distance_range: [f32; 2],
 }
 
 impl Config {

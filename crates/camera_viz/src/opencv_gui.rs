@@ -1,5 +1,5 @@
 use crate::{color_sampling::sample_rgb, config::Config, message as msg};
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use async_std::task::spawn_blocking;
 use futures::prelude::*;
 use nalgebra as na;
@@ -14,10 +14,10 @@ use rayon::prelude::*;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
+    ops::RangeInclusive,
     time::{Duration, Instant},
 };
 
-const MAX_DISTANCE: f32 = 10.0;
 const INTERVAL: Duration = Duration::from_millis(34);
 
 pub async fn start(
@@ -30,11 +30,17 @@ pub async fn start(
         // ref otobrite_intrinsics_file,
         otobrite_present_size,
         kneron_present_size,
+        otobrite_distance_range,
         ..
     } = *config;
     // let otobrite_camera_matrix = otobrite_intrinsics_file.camera_matrix.to_opencv();
     // let otobrite_dist_coefs = otobrite_intrinsics_file.distortion_coefficients.to_opencv();
     // let otobrite_pose: na::Isometry3<f32> = na::convert(config.otobrite_pose());
+
+    let otobrite_distance_range = {
+        let [min, max] = otobrite_distance_range;
+        min..=max
+    };
 
     let (tx, rx) = flume::bounded(2);
 
@@ -57,6 +63,7 @@ pub async fn start(
                 // otobrite_dist_coefs,
                 // otobrite_pose,
                 kneron_image_hw,
+                otobrite_distance_range,
             }
         };
         let mut until = Instant::now() + INTERVAL;
@@ -98,6 +105,7 @@ struct State {
     // otobrite_dist_coefs: Mat,
     otobrite_present_size: usize,
     kneron_image_hw: [usize; 2],
+    otobrite_distance_range: RangeInclusive<f32>,
 }
 
 impl State {
@@ -144,10 +152,17 @@ impl State {
         if let Some(assocs) = assocs {
             let pixels: HashMap<_, _> = assocs
                 .par_iter()
-                .map(|assoc| {
+                .filter_map(|assoc| {
                     let distance = na::distance(&na::Point3::origin(), &assoc.pcd_point.position);
+                    self.otobrite_distance_range
+                        .contains(&distance)
+                        .then_some((assoc, distance))
+                })
+                .map(|(assoc, distance)| {
                     let color = {
-                        let deg = distance.clamp(0.0, MAX_DISTANCE) / MAX_DISTANCE * 270.0;
+                        let min = self.otobrite_distance_range.start();
+                        let max = self.otobrite_distance_range.end();
+                        let deg = distance / (max - min) * 270.0;
                         let hue = RgbHue::from_degrees(deg);
                         let hsv = Hsv::new(hue, 0.8, 1.0);
                         let rgb: Srgb = hsv.into_color();

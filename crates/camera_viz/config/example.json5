@@ -18,6 +18,7 @@
     "otobrite_image_rotate_180": true,
     "otobrite_pcd_rotate_90": true,
     "otobrite_present_size": 960,
+    "otobrite_distance_range": [3, 8],
     "otobrite_intrinsics_file": "../../../data/otobrite.intrinsics.yaml",
     "otobrite_extrinsics_file": "../../../data/otobrite-extrinsics-params/solve_on_set-10,11,12,13/otobrite.extrinsics.json5",
 }
