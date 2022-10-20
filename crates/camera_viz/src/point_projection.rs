@@ -48,6 +48,10 @@ impl PointProjector {
             .unzip();
 
         // Create a vector of 2D points that will be populated.
+        if object_points.is_empty() {
+            return vec![];
+        }
+
         let object_points: Vector<Point3f> = object_points.into_iter().collect();
         let mut image_points: Vector<Point2f> = Vector::new();
 

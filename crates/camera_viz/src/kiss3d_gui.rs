@@ -21,6 +21,7 @@ use rayon::prelude::*;
 /// Starts the Kiss3d GUI interface.
 pub async fn start(config: &Config, stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send) {
     let roi = config.pcd_roi.to_roi();
+    let roi_segments = roi.as_ref().map(|roi| roi.box_segments());
 
     // Creates a channel.
     let (tx, rx) = flume::bounded(2);
@@ -47,6 +48,7 @@ pub async fn start(config: &Config, stream: impl Stream<Item = msg::Kiss3dMessag
         // Initialize the state
         let state = State {
             roi,
+            roi_segments,
             points: vec![],
             rx,
             camera,
@@ -67,6 +69,7 @@ struct State {
     rx: flume::Receiver<msg::Kiss3dMessage>,
     camera: ArcBall,
     roi: Option<Roi3D>,
+    roi_segments: Option<Vec<[na::Point3<f32>; 2]>>,
 }
 
 impl State {
@@ -160,6 +163,15 @@ impl State {
     fn render(&self, window: &mut Window) {
         // Draw axis
         self.draw_axis(window);
+
+        // Draw ROI box
+        if let Some(segments) = &self.roi_segments {
+            let color = na::Point3::new(1.0, 1.0, 0.0);
+
+            segments.iter().for_each(|[lp, rp]| {
+                window.draw_line(lp, rp, &color);
+            });
+        }
 
         // Draw points
         self.points.iter().for_each(|point| {

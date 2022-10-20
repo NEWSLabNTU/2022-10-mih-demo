@@ -1,6 +1,7 @@
 use crate::yaml_loader::YamlPath;
 use anyhow::Result;
 use cv_convert::{OpenCvPose, TryIntoCv};
+use itertools::Itertools;
 use nalgebra as na;
 use noisy_float::prelude::*;
 use opencv::prelude::*;
@@ -288,5 +289,44 @@ impl Roi3D {
         let point = self.pose_inverse * point;
         let [rx, ry, rz] = &self.size_ranges;
         rx.contains(&point.x) && ry.contains(&point.y) && rz.contains(&point.z)
+    }
+
+    pub fn box_segments(&self) -> Vec<[na::Point3<f32>; 2]> {
+        let [rx, ry, rz] = &self.size_ranges;
+        let lx = *rx.start();
+        let rx = *rx.end();
+        let ly = *ry.start();
+        let ry = *ry.end();
+        let lz = *rz.start();
+        let rz = *rz.end();
+
+        let bits3_to_end_points = |[bx, by, bz]: [u8; 3]| {
+            let x = if bx == 0 { lx } else { rx };
+            let y = if by == 0 { ly } else { ry };
+            let z = if bz == 0 { lz } else { rz };
+            na::Point3::new(x, y, z)
+        };
+
+        let bits2 = [[0, 0], [0, 1], [1, 1], [1, 0]];
+
+        let segments: Vec<_> = bits2
+            .into_iter()
+            .circular_tuple_windows()
+            .take(4)
+            .flat_map(|([l0, l1], [r0, r1])| {
+                [
+                    [[l0, l1, 0], [r0, r1, 0]],
+                    [[l0, l1, 1], [r0, r1, 1]],
+                    [[l0, l1, 0], [l0, l1, 1]],
+                ]
+            })
+            .map(|[lbits3, rbits3]| {
+                let lpoint = bits3_to_end_points(lbits3);
+                let rpoint = bits3_to_end_points(rbits3);
+                [self.pose * lpoint, self.pose * rpoint]
+            })
+            .collect();
+
+        segments
     }
 }

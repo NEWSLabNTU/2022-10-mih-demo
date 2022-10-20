@@ -312,15 +312,6 @@ impl State {
     pub fn update_pcd(&mut self, pcd: PointCloud2) -> Result<()> {
         let points = pcd_to_points(&pcd)?;
 
-        let points = if let Some(roi) = &self.pcd_roi {
-            points
-                .into_iter()
-                .filter(|point| roi.contains(&point.position))
-                .collect()
-        } else {
-            points
-        };
-
         self.cache.points = Some(ARef::new(points));
 
         self.update_kneron_assocs();
@@ -334,10 +325,27 @@ impl State {
             Some(points) => points,
             None => return,
         };
+
+        // let points = if let Some(roi) = &self.pcd_roi {
+        //     points
+        //         .into_iter()
+        //         .filter(|point| roi.contains(&point.position))
+        //         .collect()
+        // } else {
+        //     points
+        // };
+
         let assocs: Vec<_> = self
             .otobrite_projector
             .project(points)
             .into_par_iter()
+            .filter(|(pcd_point, _img_point)| {
+                if let Some(roi) = &self.pcd_roi {
+                    roi.contains(&pcd_point.position)
+                } else {
+                    true
+                }
+            })
             .map(|(pcd_point, img_point)| msg::Association {
                 pcd_point,
                 img_point,
@@ -357,6 +365,15 @@ impl State {
 
         // Compute projected 2D points.
         let pairs = self.kneron_projector.project(points);
+
+        let pairs: Vec<_> = if let Some(roi) = &self.pcd_roi {
+            pairs
+                .into_par_iter()
+                .filter(|(pcd_point, _img_point)| roi.contains(&pcd_point.position))
+                .collect()
+        } else {
+            pairs
+        };
 
         // Associate points with bboxes if bboxes are available.
         let assocs: Vec<msg::Association> = match &self.cache.kneron_bboxes {
