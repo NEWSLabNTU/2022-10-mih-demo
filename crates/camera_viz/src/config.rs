@@ -8,7 +8,7 @@ use serde::{de::Error as _, Deserialize, Deserializer};
 use serde_loader::Json5Path;
 use serde_semver::SemverReq;
 use slice_of_array::prelude::*;
-use std::{mem, num::NonZeroUsize};
+use std::{mem, num::NonZeroUsize, ops::RangeInclusive};
 
 /// Version marker type.
 #[derive(Debug, Clone, SemverReq)]
@@ -26,6 +26,7 @@ pub struct Config {
 
     /// Input topic for point cloud.
     pub pcd_topic: String,
+    pub pcd_roi: PointCloudRoi,
 
     /// Input topic for 2D detected objects.
     pub kneron_det_topic: String,
@@ -230,5 +231,62 @@ impl ExtrinsicsMatrix {
             rotation,
             translation,
         }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PointCloudRoi {
+    pub enabled: bool,
+    pub center_xyz: [f32; 3],
+    pub size_xyz: [f32; 3],
+    pub yaw_degs: f32,
+}
+
+impl PointCloudRoi {
+    pub fn to_roi(&self) -> Option<Roi3D> {
+        let Self {
+            enabled,
+            center_xyz: [cx, cy, cz],
+            size_xyz: [sx, sy, sz],
+            yaw_degs,
+        } = *self;
+
+        if !enabled {
+            return None;
+        }
+
+        let translation = na::Translation3::new(cx, cy, cz);
+        let rotation = na::UnitQuaternion::from_euler_angles(0.0, 0.0, yaw_degs.to_radians());
+        let pose = na::Isometry3 {
+            translation,
+            rotation,
+        };
+
+        let hx = sx / 2.0;
+        let hy = sy / 2.0;
+        let hz = sz / 2.0;
+
+        let size_ranges = [-hx..=hx, -hy..=hy, -hz..=hz];
+
+        Some(Roi3D {
+            size_ranges,
+            pose,
+            pose_inverse: pose.inverse(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Roi3D {
+    size_ranges: [RangeInclusive<f32>; 3],
+    pose: na::Isometry3<f32>,
+    pose_inverse: na::Isometry3<f32>,
+}
+
+impl Roi3D {
+    pub fn contains(&self, point: &na::Point3<f32>) -> bool {
+        let point = self.pose_inverse * point;
+        let [rx, ry, rz] = &self.size_ranges;
+        rx.contains(&point.x) && ry.contains(&point.y) && rz.contains(&point.z)
     }
 }

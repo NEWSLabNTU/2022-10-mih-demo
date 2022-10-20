@@ -1,7 +1,7 @@
 use std::slice;
 
 use crate::{
-    config::Config,
+    config::{Config, Roi3D},
     message as msg,
     point_projection::{CameraParams, PointProjector},
 };
@@ -97,6 +97,7 @@ struct State {
     otobrite_rotate_180: bool,
     kneron_projector: PointProjector,
     kneron_scale_hw: [f64; 2],
+    pcd_roi: Option<Roi3D>,
 }
 
 impl State {
@@ -140,6 +141,7 @@ impl State {
             otobrite_rotate_180: config.otobrite_image_rotate_180,
             cache: Cache::default(),
             kneron_scale_hw,
+            pcd_roi: config.pcd_roi.to_roi(),
         })
     }
 
@@ -309,6 +311,16 @@ impl State {
     /// Processes a point cloud message from LiDAR.
     pub fn update_pcd(&mut self, pcd: PointCloud2) -> Result<()> {
         let points = pcd_to_points(&pcd)?;
+
+        let points = if let Some(roi) = &self.pcd_roi {
+            points
+                .into_iter()
+                .filter(|point| roi.contains(&point.position))
+                .collect()
+        } else {
+            points
+        };
+
         self.cache.points = Some(ARef::new(points));
 
         self.update_kneron_assocs();
