@@ -5,6 +5,14 @@
     "otobrite_img_topic": "otobrite_image",
     "kneron_det_topic": "kneron_detection",
 
+    // LiDAR
+    "pcd_roi" {
+        "enabled": true,
+        "center_xyz": [0.0, 0.0, 0.0],
+        "size_xyz": [3.0, 3.0, 0.0],
+        "yaw_degs": 0.0,
+    },
+
     // Kneron camera
     "kneron_image_hw": [720, 1280],
     "kneron_det_hw": [1088, 1920],

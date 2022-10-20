@@ -1,4 +1,8 @@
-use crate::{color_sampling::sample_rgb, message as msg};
+use crate::{
+    color_sampling::sample_rgb,
+    config::{Config, Roi3D},
+    message as msg,
+};
 use async_std::task::spawn_blocking;
 use futures::prelude::*;
 use kiss3d::{
@@ -15,7 +19,9 @@ use num_traits::FromPrimitive;
 use rayon::prelude::*;
 
 /// Starts the Kiss3d GUI interface.
-pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send) {
+pub async fn start(config: &Config, stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send) {
+    let roi = config.pcd_roi.to_roi();
+
     // Creates a channel.
     let (tx, rx) = flume::bounded(2);
 
@@ -40,6 +46,7 @@ pub async fn start(stream: impl Stream<Item = msg::Kiss3dMessage> + Unpin + Send
 
         // Initialize the state
         let state = State {
+            roi,
             points: vec![],
             rx,
             camera,
@@ -59,6 +66,7 @@ struct State {
     points: Vec<ColoredPoint>,
     rx: flume::Receiver<msg::Kiss3dMessage>,
     camera: ArcBall,
+    roi: Option<Roi3D>,
 }
 
 impl State {
@@ -103,7 +111,19 @@ impl State {
 
         // Collect background points
         let background_points = points.par_iter().map(|point: &msg::Point| {
-            let color = na::Point3::new(0.5, 0.5, 0.5);
+            let in_roi_color = na::Point3::new(0.8, 0.8, 0.8);
+            let out_roi_color = na::Point3::new(0.5, 0.5, 0.5);
+            let color = match &self.roi {
+                Some(roi) => {
+                    if roi.contains(&point.position) {
+                        in_roi_color
+                    } else {
+                        out_roi_color
+                    }
+                }
+                None => out_roi_color,
+            };
+
             (point, color)
         });
 

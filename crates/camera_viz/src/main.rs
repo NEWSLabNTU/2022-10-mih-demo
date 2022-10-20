@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
     let opencv_future = opencv_gui::start(&config, opencv_rx.into_stream());
 
     // Start Kiss3d GUI
-    let kiss3d_future = kiss3d_gui::start(kiss3d_rx.into_stream());
+    let kiss3d_future = kiss3d_gui::start(&config, kiss3d_rx.into_stream());
 
     // Create a future to spin the ROS node
     let spin_future = spawn_blocking(move || loop {
