@@ -6,10 +6,10 @@
     "kneron_det_topic": "kneron_detection",
 
     // LiDAR
-    "pcd_roi" {
+    "pcd_roi": {
         "enabled": true,
-        "center_xyz": [0.0, 0.0, 0.0],
-        "size_xyz": [3.0, 3.0, 0.0],
+        "center_xyz": [3.0, 0.0, 0],
+        "size_xyz": [3.0, 4.0, 3.0],
         "yaw_degs": 0.0,
     },
 
