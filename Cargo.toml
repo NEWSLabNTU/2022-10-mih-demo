@@ -2,10 +2,6 @@
 members = [
     "crates/kneron-bbox-server",
     "crates/kneron_bbox_server_node",
-    "crates/camera_viz",
-    "crates/aw_viz",
-    "crates/det_conv_node",
-    "crates/v4l2_node",
 ]
 
 [patch.crates-io]
