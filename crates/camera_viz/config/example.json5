@@ -34,5 +34,5 @@
     "otobrite_hue_range": [30, 300],
     "otobrite_image_roi_tlbr": [0, 620, 1080, 1700],
     "otobrite_intrinsics_file": "../../../data/otobrite.intrinsics.yaml",
-    "otobrite_extrinsics_file": "../../../data/otobrite-extrinsics-params/solve_on_set-18/otobrite.extrinsics.json5",
+    "otobrite_extrinsics_file": "../../../data/otobrite.extrinsics.json5",
 }
