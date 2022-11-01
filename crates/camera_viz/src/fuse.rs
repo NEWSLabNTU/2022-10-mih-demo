@@ -312,6 +312,16 @@ impl State {
     pub fn update_pcd(&mut self, pcd: PointCloud2) -> Result<()> {
         let points = pcd_to_points(&pcd)?;
 
+        let range = -1.0..1.0;
+
+        let points = points
+            .into_par_iter()
+            .filter(|point| {
+                let pos = &point.position;
+                !(range.contains(&pos.x) && range.contains(&pos.y) && range.contains(&pos.z))
+            })
+            .collect();
+
         self.cache.points = Some(ARef::new(points));
 
         self.update_kneron_assocs();
