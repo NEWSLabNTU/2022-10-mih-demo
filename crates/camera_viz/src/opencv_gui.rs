@@ -191,6 +191,13 @@ impl State {
                 out
             };
 
+            // h-flip
+            let canvas = {
+                let mut output = Mat::default();
+                opencv::core::flip(&canvas, &mut output, 1)?;
+                output
+            };
+
             canvas
         };
         let otobrite_fused_image = {
@@ -275,6 +282,13 @@ impl State {
                 out
             };
 
+            // h-flip
+            let canvas = {
+                let mut output = Mat::default();
+                opencv::core::flip(&canvas, &mut output, 1)?;
+                output
+            };
+
             canvas
         };
 
@@ -335,6 +349,13 @@ impl State {
                 out
             };
 
+            // h-flip
+            let canvas = {
+                let mut output = Mat::default();
+                opencv::core::flip(&canvas, &mut output, 1)?;
+                output
+            };
+
             canvas
         };
 
@@ -350,10 +371,22 @@ impl State {
                         None => [1.0, 1.0, 1.0],
                     };
                     let color = Scalar::new(b, g, r, 0.0);
+                    let Rect {
+                        x,
+                        y,
+                        height,
+                        width,
+                    } = object.rect;
+                    let new_rect = Rect {
+                        x,
+                        y: y - 100,
+                        height,
+                        width,
+                    };
 
                     imgproc::rectangle(
                         &mut canvas,
-                        object.rect,
+                        new_rect,
                         color,
                         1, // thickness
                         LINE_8,
@@ -429,6 +462,13 @@ impl State {
                     INTER_LINEAR,
                 )?;
                 out
+            };
+
+            // h-flip
+            let canvas = {
+                let mut output = Mat::default();
+                opencv::core::flip(&canvas, &mut output, 1)?;
+                output
             };
 
             canvas
