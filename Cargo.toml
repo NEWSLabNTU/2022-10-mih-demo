@@ -1,11 +1,10 @@
 [workspace]
 members = [
-    "crates/kneron_bbox_server",
-    "crates/kneron_bbox_server_node",
-    "crates/newslab_fuse_demo",
-    "crates/aw_viz",
-    "crates/vision_to_autoware_conv_node",
-    "crates/v4l2_node",
+    "src/newslab_fuse_demo/kneron_bbox_server",
+    "src/newslab_fuse_demo/kneron_bbox_server_node",
+    "src/newslab_fuse_demo/newslab_fuse_demo",
+    "src/newslab_fuse_demo/vision_to_autoware_conv_node",
+    "src/newslab_fuse_demo/v4l2_node",
 ]
 
 [patch.crates-io]
