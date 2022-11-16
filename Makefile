@@ -15,8 +15,15 @@ build_ros_dependencies:
 	@cd repos && \
 	colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-doc:
-	cd doc && dot -Tpng ARCHITECTURE.dot > ARCHITECTURE.png
+doc: README.html
+
+README.html: README.md doc/architecture.dot.png doc/legend.dot.png
+	grip --export README.md
+
+doc/%.dot.png: doc/%.dot
+	dot -Tpng $< > $@
+
 
 clean:
+	rm -f README.html doc/architecture.png
 	cargo clean
