@@ -19,3 +19,8 @@ __pycache__/
 # ninja
 .ninja_deps
 .ninja_log
+
+# colcon
+/build
+/install
+/log
