@@ -115,4 +115,7 @@ Go check [wiki](https://newslabn.csie.ntu.edu.tw:3000/en/wayside-team/notes/2022
 
 ## Architecture
 
-![](doc/ARCHITECTURE.png)
+![](doc/legend.dot.png)
+
+
+![](doc/architecture.dot.png)

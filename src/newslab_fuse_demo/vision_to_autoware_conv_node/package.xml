@@ -1,18 +1,22 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>viz</name>
+  <name>vision_to_autoware_conv_node</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="jerry73204@gmail.com">aeon</maintainer>
   <license>TODO: License declaration</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>autoware_auto_perception_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>vision_msgs</depend>
+
+  <buildtool_depend>ament_cargo</buildtool_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_cargo</build_type>
   </export>
 </package>

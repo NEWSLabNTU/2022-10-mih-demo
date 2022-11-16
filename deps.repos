@@ -1,0 +1,9 @@
+repositories:
+  external/velodyne:
+    type: git
+    url: https://github.com/ros-drivers/velodyne.git
+    version: ros2
+  external/autoware_auto_msgs:
+    type: git
+    url: https://github.com/tier4/autoware_auto_msgs.git
+    version: tier4/main

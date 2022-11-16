@@ -1,0 +1,14 @@
+digraph architecture {
+        fontname="Helvetica,Arial,sans-serif"
+        node [fontname="Helvetica,Arial,sans-serif"]
+        edge [fontname="Helvetica,Arial,sans-serif"]
+
+        node [shape=cylinder];
+        device;
+        
+	node [shape=ellipse];
+        node_ [label = "node (build system)"];
+        
+	node [shape=note];
+        topic;
+}
