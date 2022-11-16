@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/kneron-bbox-server",
+    "crates/kneron_bbox_server",
     "crates/kneron_bbox_server_node",
     "crates/newslab_fuse_demo",
     "crates/aw_viz",
