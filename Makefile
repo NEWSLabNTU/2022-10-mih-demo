@@ -5,15 +5,13 @@ build:
 	@. repos/install/setup.sh && \
 	cargo build --release --all-targets
 
-build_ros_dependencies:
+build_ros_dependencies: deps.repos
 	@echo 'Pulling ROS dependencies' >&2
-	@mkdir -p repos && \
-	vcs import repos < dependencies.repos && \
-	vcs pull repos < dependencies.repos
+	@vcs import src < deps.repos && \
+	vcs pull src < deps.repos
 
 	@echo 'Building ROS dependencies' >&2
-	@cd repos && \
-	colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+	@colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 doc: README.html
 
