@@ -4,7 +4,7 @@ members = [
     "crates/kneron_bbox_server_node",
     "crates/newslab_fuse_demo",
     "crates/aw_viz",
-    "crates/det_conv_node",
+    "crates/vision_to_autoware_conv_node",
     "crates/v4l2_node",
 ]
 
