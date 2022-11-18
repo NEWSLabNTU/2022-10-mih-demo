@@ -1,5 +1,5 @@
 [package]
-name = "camera_viz"
+name = "newslab_fuse_demo"
 version = "0.1.0"
 edition = "2021"
 
