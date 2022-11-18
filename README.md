@@ -8,6 +8,4 @@ Please read the [installation guide](doc/INSTALL.md).
 
 ## Architecture
 
-![](doc/legend.dot.png)
-
-![](doc/architecture.dot.png)
+Please read the project [architecture page](doc/ARCHITECTURE.md).
