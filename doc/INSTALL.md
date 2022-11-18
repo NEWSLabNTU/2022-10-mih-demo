@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-This project have several Rust packages integrated into ROS 2 colcon
+This project has several Rust packages integrated into ROS 2 colcon
 build system. Rust toolchain and colcon plugins are required to build
 this project.
 
@@ -105,8 +105,8 @@ Execute the script to start the demo.
 ```
 
 If the execution is successful, it prompts two live lidar-to-camera
-fusing windows shown the the figure below. The left window shows
-bboxes from Kneron camera, while the right window shows the video from
+fusing windows shown the figure below. The left window shows bboxes
+from Kneron camera, while the right window shows the video from
 Otobrite camera. Lidar point cloud is projected on both windows.
 
 ![Live fusing demo](fusing_demo.jpg)
