@@ -103,3 +103,10 @@ Execute the script to start the demo.
 ```bash
 ./scripts/start.sh
 ```
+
+If the execution is successful, it prompts two live lidar-to-camera
+fusing windows shown the the figure below. The left window shows
+bboxes from Kneron camera, while the right window shows the video from
+Otobrite camera. Lidar point cloud is projected on both windows.
+
+![Live fusing demo](fusing_demo.jpg)
