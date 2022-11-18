@@ -4,7 +4,7 @@ members = [
     "src/newslab_fuse_demo/kneron_bbox_server_node",
     "src/newslab_fuse_demo/newslab_fuse_demo",
     "src/newslab_fuse_demo/vision_to_autoware_conv_node",
-    "src/newslab_fuse_demo/v4l2_node",
+    "src/newslab_fuse_demo/otobrite_v4l2_node",
 ]
 
 [patch.crates-io]
