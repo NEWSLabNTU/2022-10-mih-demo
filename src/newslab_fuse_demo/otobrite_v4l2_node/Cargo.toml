@@ -1,5 +1,5 @@
 [package]
-name = "v4l2_node"
+name = "otobrite_v4l2_node"
 version = "0.1.0"
 edition = "2021"
 
