@@ -1,17 +1,21 @@
-.PHONY: build clean build_ros_dependencies doc
+.PHONY: build clean pull_ros_dependencies doc
 
-build:
+build: pull_ros_dependencies
 	@echo 'Building this project' >&2
-	@. repos/install/setup.sh && \
-	cargo build --release --all-targets
 
-build_ros_dependencies: deps.repos
+	@if [ -z "$$ROS_DISTRO" ] ; then \
+		echo 'Error: Did you source setup.{sh,zsh,...}?'; \
+		exit 1; \
+	fi
+
+	colcon build --symlink-install \
+		--cmake-args -DCMAKE_BUILD_TYPE=Release \
+		--cargo-args --release
+
+pull_ros_dependencies: deps.repos
 	@echo 'Pulling ROS dependencies' >&2
 	@vcs import src < deps.repos && \
 	vcs pull src < deps.repos
-
-	@echo 'Building ROS dependencies' >&2
-	@colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 doc: README.html
 
