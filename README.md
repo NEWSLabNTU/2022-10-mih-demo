@@ -1,6 +1,6 @@
 # MIH 2022 Demo Repository
 
-This repositroy demonstrates the use of MIH Sensor API and Smart Sensor API. The physical demo was shown on 2022 MIH Demo Day, held on Nov. 8, 2022 at Taipei, Taiwan. The demonstration was prepared by MIH Open AD Working Group and its partners, including Autoware Foundation, Tier4, OtoBrite, Kneron, and National Taiwan University. 
+This repositroy demonstrates the use of MIH Sensor API and Smart Sensor API. The physical demo was shown on 2022 MIH Demo Day, held on Nov. 8, 2022 at Taipei, Taiwan. The demonstration was prepared by MIH Open AD Working Group and its partners, including Autoware Foundation, Tier IV, OtoBrite, Kneron, and National Taiwan University. 
 
 ## Installation
 
