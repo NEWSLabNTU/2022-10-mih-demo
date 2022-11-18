@@ -24,8 +24,8 @@
     "kneron_image_roi_tlbr": [0, 320, 720, 960],
     // "kneron_image_roi_tlbr": [0, 0, 720, 1280],
     // "kneron_image_roi_tlbr": [0, 130, 720, 850],
-    "kneron_intrinsics_file": "../../../data/kneron.intrinsics.yaml",
-    "kneron_extrinsics_file": "../../../data/kneron-extrinsics-params/solve_on_set-6,7,8,9,10,11/kneron.extrinsics.json5",
+    "kneron_intrinsics_file": "camera/kneron.intrinsics.yaml",
+    "kneron_extrinsics_file": "camera/kneron-extrinsics-params/solve_on_set-6,7,8,9,10,11/kneron.extrinsics.json5",
 
     // Otobrite camera
     "otobrite_image_hw": [1080, 1920],
@@ -37,6 +37,6 @@
     "otobrite_hue_range": [30, 300],
     // "otobrite_image_roi_tlbr": [0, 720, 1080, 1800],
     "otobrite_image_roi_tlbr": [0, 280, 1080, 1240],
-    "otobrite_intrinsics_file": "../../../data/otobrite.intrinsics.yaml",
-    "otobrite_extrinsics_file": "../../../data/otobrite.extrinsics.3m.json5",
+    "otobrite_intrinsics_file": "camera/otobrite.intrinsics.yaml",
+    "otobrite_extrinsics_file": "camera/otobrite.extrinsics.3m.json5",
 }
