@@ -24,7 +24,7 @@ serde-semver = "0.2.1"
 serde_yaml = "0.9.13"
 num-derive = "0.3.3"
 num-traits = "0.2.15"
-slice-of-array = "0.3.2"
+# slice-of-array = "0.3.2"
 cv-convert = { version = "0.21.0", features = ["opencv_0-68", "nalgebra_0-30"] }
 rstar = "0.9.3"
 ownref = "0.3.1"

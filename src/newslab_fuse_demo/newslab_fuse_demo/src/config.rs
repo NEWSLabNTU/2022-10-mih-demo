@@ -1,6 +1,6 @@
 use crate::yaml_loader::YamlPath;
 use anyhow::Result;
-use cv_convert::{OpenCvPose, TryIntoCv};
+// use cv_convert::{OpenCvPose, TryIntoCv};
 use itertools::Itertools;
 use nalgebra as na;
 use noisy_float::prelude::*;
@@ -8,7 +8,7 @@ use opencv::prelude::*;
 use serde::{de::Error as _, Deserialize, Deserializer};
 use serde_loader::Json5Path;
 use serde_semver::SemverReq;
-use slice_of_array::prelude::*;
+// use slice_of_array::prelude::*;
 use std::{mem, num::NonZeroUsize, ops::RangeInclusive};
 
 /// Version marker type.
@@ -97,6 +97,7 @@ pub struct MrptCalibration {
 #[derive(Debug, Clone)]
 pub struct Matrix {
     rows: usize,
+    #[allow(dead_code)]
     cols: usize,
     data: Vec<R64>,
 }
@@ -172,17 +173,17 @@ pub enum ExtrinsicsData {
 }
 
 impl ExtrinsicsData {
-    pub fn to_na(&self) -> na::Isometry3<f64> {
-        match self {
-            Self::Quaternion(me) => me.to_na(),
-            Self::Matrix(me) => me.to_na(),
-        }
-    }
+    // pub fn to_na(&self) -> na::Isometry3<f64> {
+    //     match self {
+    //         Self::Quaternion(me) => me.to_na(),
+    //         Self::Matrix(me) => me.to_na(),
+    //     }
+    // }
 
-    pub fn to_opencv(&self) -> Result<OpenCvPose<Mat>> {
-        let pose = self.to_na().try_into_cv()?;
-        Ok(pose)
-    }
+    // pub fn to_opencv(&self) -> Result<OpenCvPose<Mat>> {
+    //     let pose = self.to_na().try_into_cv()?;
+    //     Ok(pose)
+    // }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -192,22 +193,22 @@ pub struct ExtrinsicsTransform {
 }
 
 impl ExtrinsicsTransform {
-    pub fn to_na(&self) -> na::Isometry3<f64> {
-        let Self {
-            rot_wijk,
-            trans_xyz,
-        } = *self;
-        let [w, i, j, k]: [f64; 4] = unsafe { mem::transmute(rot_wijk) };
-        let [x, y, z]: [f64; 3] = unsafe { mem::transmute(trans_xyz) };
+    // pub fn to_na(&self) -> na::Isometry3<f64> {
+    //     let Self {
+    //         rot_wijk,
+    //         trans_xyz,
+    //     } = *self;
+    //     let [w, i, j, k]: [f64; 4] = unsafe { mem::transmute(rot_wijk) };
+    //     let [x, y, z]: [f64; 3] = unsafe { mem::transmute(trans_xyz) };
 
-        let rotation = na::UnitQuaternion::from_quaternion(na::Quaternion::new(w, i, j, k));
-        let translation = na::Translation3::new(x, y, z);
+    //     let rotation = na::UnitQuaternion::from_quaternion(na::Quaternion::new(w, i, j, k));
+    //     let translation = na::Translation3::new(x, y, z);
 
-        na::Isometry3 {
-            rotation,
-            translation,
-        }
-    }
+    //     na::Isometry3 {
+    //         rotation,
+    //         translation,
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -217,22 +218,22 @@ pub struct ExtrinsicsMatrix {
 }
 
 impl ExtrinsicsMatrix {
-    pub fn to_na(&self) -> na::Isometry3<f64> {
-        let rotation = {
-            let slice: &[R64] = self.rot.flat();
-            let slice: &[f64] = unsafe { mem::transmute(slice) };
-            let mat = na::Matrix3::from_row_slice(slice);
-            na::UnitQuaternion::from_matrix(&mat)
-        };
-        let translation = {
-            let [x, y, z]: [f64; 3] = unsafe { mem::transmute(self.trans) };
-            na::Translation3::new(x, y, z)
-        };
-        na::Isometry3 {
-            rotation,
-            translation,
-        }
-    }
+    // pub fn to_na(&self) -> na::Isometry3<f64> {
+    //     let rotation = {
+    //         let slice: &[R64] = self.rot.flat();
+    //         let slice: &[f64] = unsafe { mem::transmute(slice) };
+    //         let mat = na::Matrix3::from_row_slice(slice);
+    //         na::UnitQuaternion::from_matrix(&mat)
+    //     };
+    //     let translation = {
+    //         let [x, y, z]: [f64; 3] = unsafe { mem::transmute(self.trans) };
+    //         na::Translation3::new(x, y, z)
+    //     };
+    //     na::Isometry3 {
+    //         rotation,
+    //         translation,
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone, Deserialize)]

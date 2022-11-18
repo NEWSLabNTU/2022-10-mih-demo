@@ -6,7 +6,7 @@ use nalgebra as na;
 use opencv::{
     core::{add_weighted, Point2f, Point2i, Rect, Scalar, Size, CV_32FC3},
     highgui,
-    imgproc::{self, FILLED, INTER_LINEAR, LINE_8},
+    imgproc::{self, INTER_LINEAR, LINE_8},
     prelude::*,
 };
 use palette::{Hsv, IntoColor, RgbHue, Srgb};

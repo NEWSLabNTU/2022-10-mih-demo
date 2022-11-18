@@ -5,7 +5,7 @@ mod kiss3d_gui;
 mod message;
 mod opencv_gui;
 mod point_projection;
-mod rect_rtree;
+// mod rect_rtree;
 mod yaml_loader;
 // mod rate_meter;
 
