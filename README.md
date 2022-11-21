@@ -6,6 +6,8 @@ Nov. 8, 2022 at Taipei, Taiwan. The demonstration was prepared by MIH
 Open AD Working Group and its partners, including Autoware Foundation,
 Tier IV, OtoBrite, Kneron, and National Taiwan University.
 
+![](doc/demo_day.jpg)
+
 ## Installation
 
 Please read the [installation guide](doc/INSTALL.md).
